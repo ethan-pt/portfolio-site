@@ -1,0 +1,12 @@
+name = "portfolio-site"
+compatibility_date = "2026-01-07"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "portfolio-db"
+database_id = "208b6762-7db9-45f3-af06-4efbccf3e09c"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "portfolio-images"
