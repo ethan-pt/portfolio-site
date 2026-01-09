@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS projects (
     description TEXT,
     image_url TEXT,
     link TEXT,
+    order_index INTEGER NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
