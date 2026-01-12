@@ -32,3 +32,7 @@ CREATE TABLE IF NOT EXISTS traffic_logs (
     is_bot BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_projects_order ON projects(order_index);
+CREATE INDEX IF NOT EXISTS idx_project_skills_skill_id ON project_skills(skill_id);
+CREATE INDEX IF NOT EXISTS idx_traffic_logs_created_at ON traffic_logs(created_at);
