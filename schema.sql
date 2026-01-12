@@ -15,6 +15,14 @@ CREATE TABLE IF NOT EXISTS skills (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS project_skills (
+    project_id INTEGER NOT NULL,
+    skill_id INTEGER NOT NULL,
+    PRIMARY KEY (project_id, skill_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS traffic_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ip_address TEXT NOT NULL,
