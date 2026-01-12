@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS project_skills (
 
 CREATE TABLE IF NOT EXISTS traffic_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ip_address TEXT NOT NULL,
+    visitor_hash TEXT NOT NULL,
+    user_agent TEXT,
     country TEXT,
     path TEXT,
     is_bot BOOLEAN DEFAULT FALSE,
