@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS projects (
     description TEXT NOT NULL,
     image_url TEXT,
     link TEXT,
-    order_index INTEGER NOT NULL DEFAULT 0,
+    featured BOOLEAN NOT NULL DEFAULT FALSE,
+    order_index INTEGER UNIQUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS traffic_logs (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_projects_order ON projects(order_index);
+
+CREATE INDEX IF NOT EXISTS idx_projects_order ON projects(featured DESC, order_index ASC, title ASC);
 CREATE INDEX IF NOT EXISTS idx_project_skills_skill_id ON project_skills(skill_id);
 CREATE INDEX IF NOT EXISTS idx_traffic_logs_created_at ON traffic_logs(created_at);
