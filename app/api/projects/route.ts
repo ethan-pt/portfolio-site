@@ -7,7 +7,7 @@ export async function GET(request: Request) {
 
     try {
         const { results } = await env.DB.prepare(
-            'SELECT * FROM projects ORDER BY order_index ASC, created_at DESC'
+            'SELECT * FROM projects ORDER BY featured DESC, order_index ASC, created_at DESC'
         ).all();
 
         return Response.json(results);
