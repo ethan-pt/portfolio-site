@@ -6,7 +6,13 @@ CREATE TABLE IF NOT EXISTS projects (
     link TEXT,
     featured BOOLEAN NOT NULL DEFAULT FALSE,
     order_index INTEGER UNIQUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    CHECK (
+        (featured = 1 AND order_index IS NOT NULL) 
+        OR 
+        (featured = 0 AND order_index IS NULL)
+    )
 );
 
 CREATE TABLE IF NOT EXISTS skills (
@@ -38,11 +44,3 @@ CREATE TABLE IF NOT EXISTS traffic_logs (
 CREATE INDEX IF NOT EXISTS idx_projects_order ON projects(featured DESC, order_index ASC, title ASC);
 CREATE INDEX IF NOT EXISTS idx_project_skills_skill_id ON project_skills(skill_id);
 CREATE INDEX IF NOT EXISTS idx_traffic_logs_created_at ON traffic_logs(created_at);
-
-
--- enforces projects ordering values
-CHECK (
-    (featured = 1 AND order_index IS NOT NULL) 
-    OR 
-    (featured = 0 AND order_index IS NULL)
-);
