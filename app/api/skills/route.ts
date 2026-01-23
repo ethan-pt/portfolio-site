@@ -1,4 +1,5 @@
 import { getRequestContext } from '@cloudflare/next-on-pages';
+import { Skill } from '@/types/db';
 
 export const runtime = 'edge';
 
@@ -8,7 +9,7 @@ export async function GET(request: Request) {
     try {
         const { results } = await env.DB.prepare(
             'SELECT * FROM skills ORDER BY category ASC, name ASC'
-        ).all();
+        ).all<Skill>();
 
         return Response.json(results);
     } catch (error) {

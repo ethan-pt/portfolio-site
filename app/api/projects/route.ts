@@ -1,4 +1,5 @@
 import { getRequestContext } from '@cloudflare/next-on-pages';
+import { Project } from '@/types/db';
 
 export const runtime = 'edge';
 
@@ -8,7 +9,7 @@ export async function GET(request: Request) {
     try {
         const { results } = await env.DB.prepare(
             'SELECT * FROM projects ORDER BY featured DESC, order_index ASC, created_at DESC'
-        ).all();
+        ).all<Project>();
 
         return Response.json(results);
     } catch (error) {
