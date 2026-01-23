@@ -18,30 +18,32 @@ export async function GET(request: Request) {
     }
 }
 
+type SkillRequestBody = Omit<Skill, 'id' | 'created_at'>;
 export async function POST(request: Request) {
     const { env } = getRequestContext();
-    
-    let body;
-    try {
-        body = await request.json();
-    } catch (error) {
-        console.error('Invalid JSON body:', error);
-        return new Response('Invalid JSON body', { status: 400})
-    }
-    const { name, category } = body;
-
-    if (!name || !category) {
-        return new Response('Missing required fields', { status: 400 });
-    }
 
     try {
+        const body = await request.json() as SkillRequestBody;
+        const { name, category } = body;
+
+        if (!name || !category) {
+            return new Response('Missing required fields', { status: 400 });
+        }
+
         const result = await env.DB.prepare(
             'INSERT INTO skills (name, category) VALUES (?, ?)'
         ).run(name, category);
 
-        return Response.json({ id: result.lastRowId, name, category }, { status: 201 });
+        const newSkill: Skill = {
+            id: result.lastRowId as number,
+            name,
+            category,
+            created_at: new Date().toISOString(),
+        };
+
+        return Response.json(newSkill, { status: 201 });
     } catch (error) {
-        console.error('Database insert failed:', error);
+        console.error('Failed to create skill:', error);
         return new Response('Failed to create skill', { status: 500 });
     }
 }

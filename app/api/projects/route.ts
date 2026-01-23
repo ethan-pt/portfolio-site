@@ -18,32 +18,38 @@ export async function GET(request: Request) {
     }
 }
 
+type ProjectRequestBody = Omit<Project, 'id' | 'created_at'>;
 export async function POST(request: Request) {
     const { env } = getRequestContext();
-    
-    let body;
-    try {
-        body = await request.json();
-    } catch (error) {
-        console.error('Invalid JSON body:', error);
-        return new Response('Invalid JSON body', { status: 400})
-    }
-    const { title, description, image_url, link, featured, order_index } = body;
-
-    if (!title || !description) {
-        return new Response('Missing required fields', { status: 400 });
-    } else if (!featured && order_index != null || featured && order_index == null) {
-        return new Response('Projects must either be featured and ordered, or non-featured and unordered', { status: 400 });
-    }
 
     try {
+        const body = await request.json() as ProjectRequestBody;
+        const { title, description, image_url, link, featured, order_index } = body;
+
+        if (!title || !description) {
+            return new Response('Missing required fields', { status: 400 });
+        } else if (!featured && order_index != null || featured && order_index == null) {
+            return new Response('Projects must either be featured and ordered, or non-featured and unordered', { status: 400 });
+        }
+
         const result = await env.DB.prepare(
             'INSERT INTO projects (title, description, image_url, link, featured, order_index) VALUES (?, ?, ?, ?, ?, ?)'
         ).run(title, description, image_url, link, featured, order_index);
 
-        return Response.json({ id: result.lastRowid, title, description, order_index }, { status: 201 });
+        const newProject: Project = {
+            id: result.lastRowid as number,
+            title,
+            description,
+            image_url,
+            link,
+            featured,
+            order_index,
+            created_at: new Date().toISOString(),
+        };
+        
+        return Response.json(newProject, { status: 201 });
     } catch (error) {
-        console.error('Database insert failed:', error);
+        console.error('Failed to create project:', error);
         return new Response('Failed to create project', { status: 500 });
     }
 }
