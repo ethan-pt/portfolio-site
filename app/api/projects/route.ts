@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         ).run(title, description, image_url, link, featured, order_index);
 
         const newProject: Project = {
-            id: result.lastRowid as number,
+            id: result.lastRowId as number,
             title,
             description,
             image_url,
