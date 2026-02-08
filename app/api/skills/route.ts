@@ -3,6 +3,8 @@ import { Skill } from '@/types/db';
 
 export const runtime = 'edge';
 
+type SkillRequestBody = Omit<Skill, 'id' | 'created_at'>;
+
 export async function GET(request: Request) {
     const { env } = getRequestContext();
 
@@ -18,7 +20,6 @@ export async function GET(request: Request) {
     }
 }
 
-type SkillRequestBody = Omit<Skill, 'id' | 'created_at'>;
 export async function POST(request: Request) {
     const { env } = getRequestContext();
 
