@@ -13,7 +13,7 @@ export async function GET(request: Request) {
             'SELECT * FROM skills ORDER BY category ASC, name ASC'
         ).all<Skill>();
 
-        return Response.json(results);
+        return Response.json(results, { status: 200 });
     } catch (error) {
         console.error('Database query failed:', error);
         return new Response('Failed to fetch skills', { status: 500 });
