@@ -1,12 +1,10 @@
-import { getRequestContext } from '@cloudflare/next-on-pages';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { Project } from '@/types/db';
-
-export const runtime = 'edge';
 
 type ProjectRequestBody = Omit<Project, 'id' | 'created_at'>;
 
 export async function GET(request: Request) {
-    const { env } = getRequestContext();
+    const { env } = getCloudflareContext();
 
     try {
         const { results } = await env.DB.prepare(
@@ -21,7 +19,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-    const { env } = getRequestContext();
+    const { env } = getCloudflareContext();
 
     try {
         const body = await request.json() as ProjectRequestBody;
