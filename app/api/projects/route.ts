@@ -53,3 +53,43 @@ export async function POST(request: Request) {
         return new Response('Failed to create project', { status: 500 });
     }
 }
+
+export async function PATCH(request: Request) {
+    const { env } = getCloudflareContext();
+
+    try {
+        const body = await request.json() as Partial<Project> & { id: number };
+        const { id, title, description, image_url, link, category, featured, order_index } = body;
+
+        if (!id) {
+            return new Response('Missing project ID', { status: 400 });
+        }
+
+        const existingProject = await env.DB.prepare(
+            'SELECT * FROM projects WHERE id = ?'
+        ).get<Project>(id);
+
+        if (!existingProject) {
+            return new Response('Project not found', { status: 404 });
+        } else if (!featured && order_index != null || featured && order_index == null) {
+            return new Response('Projects must either be featured and ordered, or non-featured and unordered', { status: 400 });
+        }
+
+        const result = await env.DB.prepare(
+            `UPDATE projects SET 
+                title = COALESCE(?, title), 
+                description = COALESCE(?, description), 
+                image_url = COALESCE(?, image_url), 
+                link = COALESCE(?, link), 
+                category = COALESCE(?, category),
+                featured = COALESCE(?, featured), 
+                order_index = COALESCE(?, order_index) 
+             WHERE id = ?`
+        ).run(title, description, image_url, link, category, featured, order_index, id);
+
+        return Response.json({ changes: result.changes }, { status: 200 });
+    } catch (error) {
+        console.error('Failed to update project:', error);
+        return new Response('Failed to update project', { status: 500 });
+    }
+}
