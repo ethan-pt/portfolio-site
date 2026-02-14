@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS projects (
     description TEXT NOT NULL,
     image_url TEXT,
     link TEXT,
+    category TEXT NOT NULL,
     featured BOOLEAN NOT NULL DEFAULT FALSE,
     order_index INTEGER UNIQUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS skills (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     category TEXT NOT NULL,
+    featured BOOLEAN NOT NULL DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
