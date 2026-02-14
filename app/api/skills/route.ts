@@ -8,7 +8,7 @@ export async function GET(request: Request) {
 
     try {
         const { results } = await env.DB.prepare(
-            'SELECT * FROM skills ORDER BY category ASC, name ASC'
+            'SELECT * FROM skills ORDER BY featured DESC, category ASC, name ASC'
         ).all<Skill>();
 
         return Response.json(results, { status: 200 });
@@ -23,20 +23,21 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json() as SkillRequestBody;
-        const { name, category } = body;
+        const { name, category, featured } = body;
 
         if (!name || !category) {
             return new Response('Missing required fields', { status: 400 });
         }
 
         const result = await env.DB.prepare(
-            'INSERT INTO skills (name, category) VALUES (?, ?)'
-        ).run(name, category);
+            'INSERT INTO skills (name, category, featured) VALUES (?, ?, ?)'
+        ).run(name, category, featured);
 
         const newSkill: Skill = {
             id: result.lastRowId as number,
             name,
             category,
+            featured,
             created_at: new Date().toISOString(),
         };
 
