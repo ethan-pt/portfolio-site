@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS projects (
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     image_url TEXT,
-    link TEXT,
+    link TEXT NOT NULL,
     category TEXT NOT NULL,
     featured BOOLEAN NOT NULL DEFAULT FALSE,
     order_index INTEGER UNIQUE,
