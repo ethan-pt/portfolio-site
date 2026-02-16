@@ -43,6 +43,6 @@ CREATE TABLE IF NOT EXISTS traffic_logs (
 );
 
 
-CREATE INDEX IF NOT EXISTS idx_projects_order ON projects(featured DESC, order_index ASC, title ASC);
+CREATE INDEX IF NOT EXISTS idx_projects_order ON projects(featured DESC, category DESC, order_index ASC, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_project_skills_skill_id ON project_skills(skill_id);
 CREATE INDEX IF NOT EXISTS idx_traffic_logs_created_at ON traffic_logs(created_at);
