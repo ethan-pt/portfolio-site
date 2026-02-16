@@ -93,3 +93,33 @@ export async function PATCH(request: Request) {
         return new Response('Failed to update project', { status: 500 });
     }
 }
+
+export async function DELETE(request: Request) {
+    const { env } = getCloudflareContext();
+
+    try {
+        const body = await request.json() as { id: number };
+        const { id } = body;
+
+        if (!id) {
+            return new Response('Missing project ID', { status: 400 });
+        }
+
+        const existingProject = await env.DB.prepare(
+            'SELECT * FROM projects WHERE id = ?'
+        ).get<Project>(id);
+
+        if (!existingProject) {
+            return new Response('Project not found', { status: 404 });
+        }
+
+        await env.DB.prepare(
+            'DELETE FROM projects WHERE id = ?'
+        ).run(id);
+
+        return new Response('Project deleted successfully', { status: 200 });
+    } catch (error) {
+        console.error('Failed to delete project:', error);
+        return new Response('Failed to delete project', { status: 500 });
+    }
+}

@@ -81,3 +81,33 @@ export async function PATCH(request: Request) {
         return new Response('Failed to update skill', { status: 500 });
     }
 }
+
+export async function DELETE(request: Request) {
+    const { env } = getCloudflareContext();
+
+    try {
+        const body = await request.json() as { id: number };
+        const { id } = body;
+
+        if (!id) {
+            return new Response('Missing skill ID', { status: 400 });
+        }
+
+        const existingSkill = await env.DB.prepare(
+            'SELECT * FROM skills WHERE id = ?'
+        ).get<Skill>(id);
+
+        if (!existingSkill) {
+            return new Response('Skill not found', { status: 404 });
+        }
+
+        await env.DB.prepare(
+            'DELETE FROM skills WHERE id = ?'
+        ).run(id);
+
+        return new Response('Skill deleted successfully', { status: 200 });
+    } catch (error) {
+        console.error('Failed to delete skill:', error);
+        return new Response('Failed to delete skill', { status: 500 });
+    }
+}
