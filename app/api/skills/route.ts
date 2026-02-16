@@ -47,3 +47,37 @@ export async function POST(request: Request) {
         return new Response('Failed to create skill', { status: 500 });
     }
 }
+
+export async function PATCH(request: Request) {
+    const { env } = getCloudflareContext();
+    
+    try {
+        const body = await request.json() as Partial<Skill> & { id: number };
+        const { id, name, category, featured } = body;
+
+        if (!id) {
+            return new Response('Missing skill ID', { status: 400 });
+        }
+
+        const existingSkill = await env.DB.prepare(
+            'SELECT * FROM skills WHERE id = ?'
+        ).get<Skill>(id);
+
+        if (!existingSkill) {
+            return new Response('Skill not found', { status: 404 });
+        }
+
+        const result = await env.DB.prepare(
+            `UPDATE skills SET
+                name = COALESCE(?, name),
+                category = COALESCE(?, category),
+                featured = COALESCE(?, featured)
+            WHERE id = ?`
+        ).run(name, category, featured, id);
+
+        return Response.json({ changes: result.changes }, { status: 200 });
+    } catch (error) {
+        console.error('Failed to update skill:', error);
+        return new Response('Failed to update skill', { status: 500 });
+    }
+}
