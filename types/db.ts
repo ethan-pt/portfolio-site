@@ -6,7 +6,7 @@ export interface Project {
     link: string;
     category: string;
     featured: boolean;
-    order_index?: number;
+    order_index: number | null;
     created_at: string;
 }
 
