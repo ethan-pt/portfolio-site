@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         if (!title || !description || !link || !category) {
             return errorResponse('Missing required fields', 400);
         }
-        if (featured === true && order_index === null || featured === false && order_index !== null) {
+        if (!featured && order_index != null || featured && order_index == null) {
             return errorResponse('Projects must either be featured and ordered, or non-featured and unordered', 400);
         }
 
