@@ -3,6 +3,9 @@ import { Project } from '@/types/db';
 
 type ProjectRequestBody = Omit<Project, 'id' | 'created_at'>;
 
+// Helper for consistent error responses
+const errorResponse = (message: string, status: number) => Response.json({ error: message }, { status, headers: { 'Content-Type': 'application/json' } });
+
 export async function GET(request: Request) {
     const { env } = getCloudflareContext();
 
@@ -14,21 +17,29 @@ export async function GET(request: Request) {
         return Response.json(results, { status: 200 });
     } catch (error) {
         console.error('Database query failed:', error);
-        return new Response('Failed to fetch projects', { status: 500 });
+        return errorResponse('Failed to fetch projects', 500);
     }
 }
 
 export async function POST(request: Request) {
     const { env } = getCloudflareContext();
 
+    let body: ProjectRequestBody;
     try {
-        const body = await request.json() as ProjectRequestBody;
+        body = await request.json();
+    } catch (error) {
+        console.error('Invalid JSON:', error);
+        return errorResponse('Invalid JSON body', 400);
+    }
+
+    try {
         const { title, description, image_url, link, category, featured, order_index } = body;
 
         if (!title || !description || !link || !category) {
-            return new Response('Missing required fields', { status: 400 });
-        } else if (!featured && order_index != null || featured && order_index == null) {
-            return new Response('Projects must either be featured and ordered, or non-featured and unordered', { status: 400 });
+            return errorResponse('Missing required fields', 400);
+        }
+        if (featured === true && order_index === null || featured === false && order_index !== null) {
+            return errorResponse('Projects must either be featured and ordered, or non-featured and unordered', 400);
         }
 
         const result = await env.DB.prepare(
@@ -50,19 +61,26 @@ export async function POST(request: Request) {
         return Response.json(newProject, { status: 201 });
     } catch (error) {
         console.error('Failed to create project:', error);
-        return new Response('Failed to create project', { status: 500 });
+        return errorResponse('Failed to create project', 500);
     }
 }
 
 export async function PATCH(request: Request) {
     const { env } = getCloudflareContext();
 
+    let body: Partial<Project> & { id: number };
     try {
-        const body = await request.json() as Partial<Project> & { id: number };
-        const { id, title, description, image_url, link, category, featured, order_index } = body;
+        body = await request.json();
+    } catch (error) {
+        console.error('Invalid JSON:', error);
+        return errorResponse('Invalid JSON body', 400);
+    }
+
+    try {
+        const { id, featured, order_index } = body;
 
         if (!id) {
-            return new Response('Missing project ID', { status: 400 });
+            return errorResponse('Missing project ID', 400);
         }
 
         const existingProject = await env.DB.prepare(
@@ -70,56 +88,69 @@ export async function PATCH(request: Request) {
         ).get<Project>(id);
 
         if (!existingProject) {
-            return new Response('Project not found', { status: 404 });
-        } else if (!featured && order_index != null || featured && order_index == null) {
-            return new Response('Projects must either be featured and ordered, or non-featured and unordered', { status: 400 });
+            return errorResponse('Project not found', 404);
+        }
+        if (featured === true && order_index === null || featured === false && order_index !== null) {
+            return errorResponse('Projects must either be featured and ordered, or non-featured and unordered', 400);
         }
 
+        const updates: string[] = [];
+        const values: any[] = [];
+
+        if (body.title !== undefined) { updates.push("title = ?"); values.push(body.title); }
+        if (body.description !== undefined) { updates.push("description = ?"); values.push(body.description); }
+        if (body.image_url !== undefined) { updates.push("image_url = ?"); values.push(body.image_url); }
+        if (body.link !== undefined) { updates.push("link = ?"); values.push(body.link); }
+        if (body.category !== undefined) { updates.push("category = ?"); values.push(body.category); }
+        if (body.featured !== undefined) { updates.push("featured = ?"); values.push(body.featured); }
+        if (body.order_index !== undefined) { updates.push("order_index = ?"); values.push(order_index); }
+
+        if (updates.length === 0) {
+            return errorResponse('No fields to update', 400);
+        }
+
+        values.push(id);
+
         const result = await env.DB.prepare(
-            `UPDATE projects SET 
-                title = COALESCE(?, title), 
-                description = COALESCE(?, description), 
-                image_url = COALESCE(?, image_url), 
-                link = COALESCE(?, link), 
-                category = COALESCE(?, category),
-                featured = COALESCE(?, featured), 
-                order_index = COALESCE(?, order_index) 
-             WHERE id = ?`
-        ).run(title, description, image_url, link, category, featured, order_index, id);
+            `UPDATE projects SET ${updates.join(', ')} WHERE id = ?`
+        ).run(...values);
 
         return Response.json({ changes: result.changes }, { status: 200 });
     } catch (error) {
         console.error('Failed to update project:', error);
-        return new Response('Failed to update project', { status: 500 });
+        return errorResponse('Failed to update project', 500);
     }
 }
 
 export async function DELETE(request: Request) {
     const { env } = getCloudflareContext();
 
+    let body: { id: number };
     try {
-        const body = await request.json() as { id: number };
+        body = await request.json();
+    } catch (error) {
+        console.error('Invalid JSON:', error);
+        return errorResponse('Invalid JSON body', 400);
+    }
+
+    try {
         const { id } = body;
 
         if (!id) {
-            return new Response('Missing project ID', { status: 400 });
+            return errorResponse('Missing project ID', 400);
         }
 
-        const existingProject = await env.DB.prepare(
-            'SELECT * FROM projects WHERE id = ?'
-        ).get<Project>(id);
-
-        if (!existingProject) {
-            return new Response('Project not found', { status: 404 });
-        }
-
-        await env.DB.prepare(
+        const result = await env.DB.prepare(
             'DELETE FROM projects WHERE id = ?'
         ).run(id);
 
-        return new Response('Project deleted successfully', { status: 200 });
+        if (result.changes === 0) {
+            return errorResponse('Project not found', 404);
+        }
+
+        return Response.json({ message: 'Project deleted successfully' }, { status: 200 });
     } catch (error) {
         console.error('Failed to delete project:', error);
-        return new Response('Failed to delete project', { status: 500 });
+        return errorResponse('Failed to delete project', 500);
     }
 }

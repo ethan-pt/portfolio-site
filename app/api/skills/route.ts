@@ -3,6 +3,9 @@ import { Skill } from '@/types/db';
 
 type SkillRequestBody = Omit<Skill, 'id' | 'created_at'>;
 
+// Helper for consistent error responses
+const errorResponse = (message: string, status: number) => Response.json({ error: message }, { status, headers: { 'Content-Type': 'application/json' } });
+
 export async function GET(request: Request) {
     const { env } = getCloudflareContext();
 
@@ -14,19 +17,26 @@ export async function GET(request: Request) {
         return Response.json(results, { status: 200 });
     } catch (error) {
         console.error('Database query failed:', error);
-        return new Response('Failed to fetch skills', { status: 500 });
+        return errorResponse('Failed to fetch skills', 500);
     }
 }
 
 export async function POST(request: Request) {
     const { env } = getCloudflareContext();
 
+    let body: SkillRequestBody;
     try {
-        const body = await request.json() as SkillRequestBody;
+        body = await request.json();
+    } catch (error) {
+        console.error('Invalid JSON:', error);
+        return errorResponse('Invalid JSON body', 400);
+    }
+
+    try {
         const { name, category, featured } = body;
 
         if (!name || !category) {
-            return new Response('Missing required fields', { status: 400 });
+            return errorResponse('Missing required fields', 400);
         }
 
         const result = await env.DB.prepare(
@@ -44,19 +54,26 @@ export async function POST(request: Request) {
         return Response.json(newSkill, { status: 201 });
     } catch (error) {
         console.error('Failed to create skill:', error);
-        return new Response('Failed to create skill', { status: 500 });
+        return errorResponse('Failed to create skill', 500);
     }
 }
 
 export async function PATCH(request: Request) {
     const { env } = getCloudflareContext();
     
+    let body: Partial<Skill> & { id: number };
     try {
-        const body = await request.json() as Partial<Skill> & { id: number };
+        body = await request.json();
+    } catch (error) {
+        console.error('Invalid JSON:', error);
+        return errorResponse('Invalid JSON body', 400);
+    }
+
+    try {
         const { id, name, category, featured } = body;
 
         if (!id) {
-            return new Response('Missing skill ID', { status: 400 });
+            return errorResponse('Missing skill ID', 400);
         }
 
         const existingSkill = await env.DB.prepare(
@@ -64,50 +81,62 @@ export async function PATCH(request: Request) {
         ).get<Skill>(id);
 
         if (!existingSkill) {
-            return new Response('Skill not found', { status: 404 });
+            return errorResponse('Skill not found', 404);
         }
 
+        const updates = [];
+        const values = [];
+
+        if (body.name !== undefined) { updates.push('name = ?'); values.push(name); }
+        if (body.category !== undefined) { updates.push('category = ?'); values.push(category); }
+        if (body.featured !== undefined) { updates.push('featured = ?'); values.push(featured); }
+
+        if (updates.length === 0) {
+            return errorResponse('No fields to update', 400);
+        }
+
+        values.push(id);
+
         const result = await env.DB.prepare(
-            `UPDATE skills SET
-                name = COALESCE(?, name),
-                category = COALESCE(?, category),
-                featured = COALESCE(?, featured)
-            WHERE id = ?`
-        ).run(name, category, featured, id);
+            `UPDATE skills SET ${updates.join(', ')} WHERE id = ?`
+        ).run(...values);
 
         return Response.json({ changes: result.changes }, { status: 200 });
     } catch (error) {
         console.error('Failed to update skill:', error);
-        return new Response('Failed to update skill', { status: 500 });
+        return errorResponse('Failed to update skill', 500);
     }
 }
 
 export async function DELETE(request: Request) {
     const { env } = getCloudflareContext();
 
+    let body: { id: number };
     try {
-        const body = await request.json() as { id: number };
+        body = await request.json();
+    } catch (error) {
+        console.error('Invalid JSON:', error);
+        return errorResponse('Invalid JSON body', 400);
+    }
+
+    try {
         const { id } = body;
 
         if (!id) {
-            return new Response('Missing skill ID', { status: 400 });
+            return errorResponse('Missing skill ID', 400);
         }
 
-        const existingSkill = await env.DB.prepare(
-            'SELECT * FROM skills WHERE id = ?'
-        ).get<Skill>(id);
-
-        if (!existingSkill) {
-            return new Response('Skill not found', { status: 404 });
-        }
-
-        await env.DB.prepare(
+        const result = await env.DB.prepare(
             'DELETE FROM skills WHERE id = ?'
         ).run(id);
 
-        return new Response('Skill deleted successfully', { status: 200 });
+        if (result.changes === 0) {
+            return errorResponse('Skill not found', 404);
+        }
+
+        return Response.json({ message: 'Skill deleted successfully' }, { status: 200 });
     } catch (error) {
         console.error('Failed to delete skill:', error);
-        return new Response('Failed to delete skill', { status: 500 });
+        return errorResponse('Failed to delete skill', 500);
     }
 }
