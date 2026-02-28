@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         if (!title || !description || !link || !category) {
             return errorResponse('Missing required fields', 400);
         }
-        if (!featured && order_index != null || featured && order_index == null) {
+        if ((featured === true && order_index == null) || (featured === false && order_index !== null)) {
             return errorResponse('Projects must either be featured and ordered, or non-featured and unordered', 400);
         }
 
@@ -77,7 +77,7 @@ export async function PATCH(request: Request) {
     }
 
     try {
-        const { id, featured, order_index } = body;
+        const { id } = body;
 
         if (!id) {
             return errorResponse('Missing project ID', 400);
@@ -90,20 +90,35 @@ export async function PATCH(request: Request) {
         if (!existingProject) {
             return errorResponse('Project not found', 404);
         }
-        if (featured === true && order_index === null || featured === false && order_index !== null) {
+
+        // Validate the final state of the object by merging the existing project with the patch body
+        const finalFeatured = body.featured !== undefined ? body.featured : existingProject.featured;
+        const finalOrderIndex = body.order_index !== undefined ? body.order_index : existingProject.order_index;
+
+        if ((finalFeatured === true && finalOrderIndex === null) || (finalFeatured === false && finalOrderIndex !== null)) {
             return errorResponse('Projects must either be featured and ordered, or non-featured and unordered', 400);
         }
 
-        const updates: string[] = [];
-        const values: any[] = [];
+        const potentialUpdates: Partial<Omit<Project, 'id' | 'created_at'>> = {
+            title: body.title,
+            description: body.description,
+            image_url: body.image_url,
+            link: body.link,
+            category: body.category,
+            featured: body.featured,
+            order_index: body.order_index,
+        };
 
-        if (body.title !== undefined) { updates.push("title = ?"); values.push(body.title); }
-        if (body.description !== undefined) { updates.push("description = ?"); values.push(body.description); }
-        if (body.image_url !== undefined) { updates.push("image_url = ?"); values.push(body.image_url); }
-        if (body.link !== undefined) { updates.push("link = ?"); values.push(body.link); }
-        if (body.category !== undefined) { updates.push("category = ?"); values.push(body.category); }
-        if (body.featured !== undefined) { updates.push("featured = ?"); values.push(body.featured); }
-        if (body.order_index !== undefined) { updates.push("order_index = ?"); values.push(order_index); }
+        const updates: string[] = [];
+        const values: (string | number | boolean | null)[] = [];
+
+        // Build the query dynamically from defined properties in the body
+        for (const [key, value] of Object.entries(potentialUpdates)) {
+            if (value !== undefined) {
+                updates.push(`${key} = ?`);
+                values.push(value);
+            }
+        }
 
         if (updates.length === 0) {
             return errorResponse('No fields to update', 400);
