@@ -84,12 +84,21 @@ export async function PATCH(request: Request) {
             return errorResponse('Skill not found', 404);
         }
 
-        const updates = [];
-        const values = [];
+        const potentialUpdates: Partial<Omit<Skill, 'id' | 'created_at'>> = {
+            name: body.name,
+            category: body.category,
+            featured: body.featured,
+        }
 
-        if (body.name !== undefined) { updates.push('name = ?'); values.push(name); }
-        if (body.category !== undefined) { updates.push('category = ?'); values.push(category); }
-        if (body.featured !== undefined) { updates.push('featured = ?'); values.push(featured); }
+        const updates: string[] = [];
+        const values: (string | number | boolean)[] = [];
+
+        for (const [key, value] of Object.entries(potentialUpdates)) {
+            if (value !== undefined) {
+                updates.push(`${key} = ?`);
+                values.push(value);
+            }
+        }
 
         if (updates.length === 0) {
             return errorResponse('No fields to update', 400);
