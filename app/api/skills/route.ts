@@ -70,7 +70,7 @@ export async function PATCH(request: Request) {
     }
 
     try {
-        const { id, name, category, featured } = body;
+        const { id } = body;
 
         if (!id) {
             return errorResponse('Missing skill ID', 400);
