@@ -17,3 +17,8 @@ export interface Skill {
     featured: boolean;
     created_at: string;
 }
+
+export interface ProjectSkill {
+    project_id: number;
+    skill_id: number;
+}
