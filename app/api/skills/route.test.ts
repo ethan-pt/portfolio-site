@@ -1,253 +1,257 @@
-import { describe, vi, beforeEach, Mock, test, expect } from 'vitest';
+import { describe, vi, beforeEach, afterEach, test, expect, type Mock } from 'vitest';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { Skill } from '@/types/db';
+import {
+    listSkills,
+    createSkill,
+    updateSkill,
+    deleteSkill,
+    NoFieldsToUpdateError,
+    MissingRequiredSkillFieldsError,
+    SkillNotFoundError,
+} from '@/lib/skills';
+import type { Skill } from '@/types/db';
 import { GET, POST, PATCH, DELETE } from './route';
-import { mock } from 'node:test';
-
 
 vi.mock('@opennextjs/cloudflare', () => ({
     getCloudflareContext: vi.fn(),
 }));
 
-describe('Skills API', () => {
-    const mockDb = {
-        prepare: vi.fn().mockReturnValue({
-            all: vi.fn(),
-            run: vi.fn(),
-            get: vi.fn(),
-        }),
-    };
+vi.mock('@/lib/skills', () => {
+    class SkillNotFoundError extends Error {
+        constructor(message = 'Skill not found') {
+            super(message);
+            this.name = 'SkillNotFoundError';
+        }
+    }
 
+    class NoFieldsToUpdateError extends Error {
+        constructor(message = 'No fields to update') {
+            super(message);
+            this.name = 'NoFieldsToUpdateError';
+        }
+    }
+
+    class MissingRequiredSkillFieldsError extends Error {
+        constructor(message = 'Missing required fields') {
+            super(message);
+            this.name = 'MissingRequiredSkillFieldsError';
+        }
+    }
+
+    return {
+        listSkills: vi.fn(),
+        createSkill: vi.fn(),
+        updateSkill: vi.fn(),
+        deleteSkill: vi.fn(),
+        SkillNotFoundError,
+        NoFieldsToUpdateError,
+        MissingRequiredSkillFieldsError,
+    };
+});
+
+const mockDb = {} as D1Database;
+const listSkillsMock = listSkills as Mock<typeof listSkills>;
+const createSkillMock = createSkill as Mock<typeof createSkill>;
+const updateSkillMock = updateSkill as Mock<typeof updateSkill>;
+const deleteSkillMock = deleteSkill as Mock<typeof deleteSkill>;
+
+function jsonRequest(method: string, body: unknown): Request {
+    return new Request('http://localhost/api/skills', {
+        method,
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+    });
+}
+
+describe('Skills API route', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
         (getCloudflareContext as Mock).mockReturnValue({
             env: { DB: mockDb },
         });
     });
 
-    describe('GET method', () => {
-        test('returns all skills and status 200', async () => {
-            const mockResults = [
-                { id: 1, name: 'React', category: 'Frontend', featured: true, created_at: '2023-01-01T00:00:00Z' },
-                { id: 2, name: 'Node.js', category: 'Backend', featured: false, created_at: '2023-01-02T00:00:00Z' },
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    describe('GET', () => {
+        test('returns skills from the lib', async () => {
+            const skills: Partial<Skill>[] = [
+                { id: 1, name: 'React', category: 'Frontend', featured: true },
+                { id: 2, name: 'Node.js', category: 'Backend', featured: false },
             ];
-            mockDb.prepare().all.mockResolvedValue({ results: mockResults });
-            const response = await GET(new Request('http://localhost/skills'));
+            listSkillsMock.mockResolvedValue(skills as Skill[]);
+
+            const response = await GET();
 
             expect(response.status).toBe(200);
-            expect(await response.json()).toEqual(mockResults);
+            expect(await response.json()).toEqual(skills);
+            expect(listSkillsMock).toHaveBeenCalledWith(mockDb);
         });
 
-        test('returns empty array when no skills exist', async () => {
-            mockDb.prepare().all.mockResolvedValue({ results: [] });
+        test('returns 500 when listing skills fails', async () => {
+            listSkillsMock.mockRejectedValue(new Error('Database error'));
 
-            const response = await GET(new Request('http://localhost/skills'));
-
-            expect(response.status).toBe(200);
-            expect(await response.json()).toEqual([]);
-        });
-
-        test('ordering logic is correct', async () => {
-            const mockResults = [
-                { id: 1, name: 'React', category: 'Frontend', featured: true, created_at: '2023-01-01T00:00:00Z' },
-                { id: 2, name: 'Node.js', category: 'Backend', featured: false, created_at: '2023-01-02T00:00:00Z' },
-                { id: 3, name: 'Vue', category: 'Frontend', featured: true, created_at: '2023-01-03T00:00:00Z' },
-            ];
-            mockDb.prepare().all.mockResolvedValue({ results: mockResults });
-
-            const response = await GET(new Request('http://localhost/skills'));
-
-            expect(response.status).toBe(200);
-            const data = await response.json();
-            expect(data[0].featured).toBe(true);
-        });
-
-        test('handles database errors gracefully', async () => {
-            mockDb.prepare().all.mockRejectedValue(new Error('Database error'));
-            const response = await GET(new Request('http://localhost/skills'));
+            const response = await GET();
 
             expect(response.status).toBe(500);
             expect(await response.json()).toEqual({ error: 'Failed to fetch skills' });
         });
     });
 
-    describe('POST method', () => {
-        test('creates a new skill and returns it with status 201', async () => {
-            const newSkill = { id: 1, name: 'React', category: 'Frontend', featured: true };
-            mockDb.prepare().run.mockResolvedValue({ lastRowId: newSkill.id });
+    describe('POST', () => {
+        const skillData = {
+            name: 'React',
+            category: 'Frontend',
+            featured: true,
+        };
 
-            const requestBody = { name: 'React', category: 'Frontend', featured: true };
-            const response = await POST(new Request('http://localhost/skills', {
-                method: 'POST',
-                body: JSON.stringify(requestBody),
-                headers: { 'Content-Type': 'application/json' },
-            }));
+        test('creates a skill through the lib', async () => {
+            const newSkill = { id: 7, ...skillData, created_at: '2024-01-01T00:00:00.000Z' };
+            createSkillMock.mockResolvedValue(newSkill);
 
-            const expectedSkill = { ...newSkill, created_at: expect.any(String) };
+            const response = await POST(jsonRequest('POST', skillData));
 
             expect(response.status).toBe(201);
-            expect(await response.json()).toEqual(expectedSkill);
+            expect(await response.json()).toEqual(newSkill);
+            expect(createSkillMock).toHaveBeenCalledWith(mockDb, skillData);
         });
 
-        test('returns 400 if required fields are missing', async () => {
-            const response = await POST(new Request('http://localhost/skills', {
+        test('returns 400 for invalid JSON', async () => {
+            const response = await POST(new Request('http://localhost/api/skills', {
                 method: 'POST',
-                body: JSON.stringify({ name: 'React' }), // Missing category
-                headers: { 'Content-Type': 'application/json' },
+                body: '{',
             }));
+
+            expect(response.status).toBe(400);
+            expect(await response.json()).toEqual({ error: 'Invalid JSON body' });
+            expect(createSkillMock).not.toHaveBeenCalled();
+        });
+
+        test('maps missing required skill fields to 400', async () => {
+            createSkillMock.mockRejectedValue(new MissingRequiredSkillFieldsError());
+
+            const response = await POST(jsonRequest('POST', { name: 'Incomplete Skill' }));
 
             expect(response.status).toBe(400);
             expect(await response.json()).toEqual({ error: 'Missing required fields' });
         });
 
-        test('handles database errors gracefully', async () => {
-            mockDb.prepare().run.mockRejectedValue(new Error('Database error'));
-            const requestBody = { name: 'React', category: 'Frontend', featured: true };
-            const response = await POST(new Request('http://localhost/skills', {
-                method: 'POST',
-                body: JSON.stringify(requestBody),
-                headers: { 'Content-Type': 'application/json' },
-            }));
+        test('returns 500 when creation fails unexpectedly', async () => {
+            createSkillMock.mockRejectedValue(new Error('Database error'));
+
+            const response = await POST(jsonRequest('POST', skillData));
 
             expect(response.status).toBe(500);
             expect(await response.json()).toEqual({ error: 'Failed to create skill' });
         });
     });
 
-    describe('PATCH method', () => {
-        const existingSkill: Skill = {
-            id: 1,
-            name: 'React',
-            category: 'Frontend',
-            featured: true,
-            created_at: '2023-01-01T00:00:00Z',
-        }
+    describe('PATCH', () => {
+        test('updates a skill through the lib', async () => {
+            const patch = { id: 1, name: 'React Updated' };
+            updateSkillMock.mockResolvedValue({ changes: 1 });
 
-        test('updates an existing skill and returns it with status 200', async () => {
-            mockDb.prepare().get.mockResolvedValue(existingSkill);
-            mockDb.prepare().run.mockResolvedValue({ changes: 1 });
-
-            const requestBody = { id: existingSkill.id, name: 'React Updated' };
-            const response = await PATCH(new Request('http://localhost/skills', {
-                method: 'PATCH',
-                body: JSON.stringify(requestBody),
-                headers: { 'Content-Type': 'application/json' },
-            }));
+            const response = await PATCH(jsonRequest('PATCH', patch));
 
             expect(response.status).toBe(200);
             expect(await response.json()).toEqual({ changes: 1 });
+            expect(updateSkillMock).toHaveBeenCalledWith(mockDb, patch.id, patch);
         });
 
-        test('returns 400 if skill ID is missing', async () => {
-            const response = await PATCH(new Request('http://localhost/skills', {
-                method: 'PATCH',
-                body: JSON.stringify({ name: 'React Updated' }), // Missing ID
-                headers: { 'Content-Type': 'application/json' },
-            }));
+        test('returns 400 when skill ID is missing', async () => {
+            const response = await PATCH(jsonRequest('PATCH', { name: 'No ID Skill' }));
 
             expect(response.status).toBe(400);
             expect(await response.json()).toEqual({ error: 'Missing skill ID' });
+            expect(updateSkillMock).not.toHaveBeenCalled();
         });
 
-        test('returns 404 if skill does not exist', async () => {
-            mockDb.prepare().get.mockResolvedValue(undefined);
-
-            const requestBody = { id: 999, name: 'Nonexistent Skill' };
-            const response = await PATCH(new Request('http://localhost/skills', {
+        test('returns 400 for invalid JSON', async () => {
+            const response = await PATCH(new Request('http://localhost/api/skills', {
                 method: 'PATCH',
-                body: JSON.stringify(requestBody),
-                headers: { 'Content-Type': 'application/json' },
+                body: '{',
             }));
 
-            expect(response.status).toBe(404);
-            expect(await response.json()).toEqual({ error: 'Skill not found' });
+            expect(response.status).toBe(400);
+            expect(await response.json()).toEqual({ error: 'Invalid JSON body' });
+            expect(updateSkillMock).not.toHaveBeenCalled();
         });
 
-        test('returns 400 if no fields to update are provided', async () => {
-            mockDb.prepare().get.mockResolvedValue(existingSkill);
+        test('maps no fields to update to 400', async () => {
+            updateSkillMock.mockRejectedValue(new NoFieldsToUpdateError());
 
-            const requestBody = { id: existingSkill.id }; // No fields to update
-            const response = await PATCH(new Request('http://localhost/skills', {
-                method: 'PATCH',
-                body: JSON.stringify(requestBody),
-                headers: { 'Content-Type': 'application/json' },
-            }));
+            const response = await PATCH(jsonRequest('PATCH', { id: 1 }));
 
             expect(response.status).toBe(400);
             expect(await response.json()).toEqual({ error: 'No fields to update' });
         });
 
-        test('handles database errors gracefully', async () => {
-            mockDb.prepare().get.mockResolvedValue(existingSkill);
-            mockDb.prepare().run.mockRejectedValue(new Error('Database error'));
+        test('maps missing skills to 404', async () => {
+            updateSkillMock.mockRejectedValue(new SkillNotFoundError());
 
-            const requestBody = { id: existingSkill.id, name: 'React Updated' };
-            const response = await PATCH(new Request('http://localhost/skills', {
-                method: 'PATCH',
-                body: JSON.stringify(requestBody),
-                headers: { 'Content-Type': 'application/json' },
-            }));
+            const response = await PATCH(jsonRequest('PATCH', { id: 999, name: 'Missing' }));
+
+            expect(response.status).toBe(404);
+            expect(await response.json()).toEqual({ error: 'Skill not found' });
+        });
+
+        test('returns 500 when update fails unexpectedly', async () => {
+            updateSkillMock.mockRejectedValue(new Error('Database error'));
+
+            const response = await PATCH(jsonRequest('PATCH', { id: 1, name: 'Updated' }));
 
             expect(response.status).toBe(500);
             expect(await response.json()).toEqual({ error: 'Failed to update skill' });
         });
     });
 
-    describe('DELETE method', () => {
-        const existingSkill: Skill = {
-            id: 1,
-            name: 'React',
-            category: 'Frontend',
-            featured: true,
-            created_at: '2023-01-01T00:00:00Z',
-        }
+    describe('DELETE', () => {
+        test('deletes a skill through the lib', async () => {
+            deleteSkillMock.mockResolvedValue(undefined);
 
-        test('deletes an existing skill and returns status 200', async () => {
-            mockDb.prepare().get.mockResolvedValue(existingSkill);
-            mockDb.prepare().run.mockResolvedValue({ changes: 1 });
-
-            const response = await DELETE(new Request('http://localhost/skills', {
-                method: 'DELETE',
-                body: JSON.stringify({ id: existingSkill.id }),
-                headers: { 'Content-Type': 'application/json' },
-            }));
+            const response = await DELETE(jsonRequest('DELETE', { id: 1 }));
 
             expect(response.status).toBe(200);
             expect(await response.json()).toEqual({ message: 'Skill deleted successfully' });
+            expect(deleteSkillMock).toHaveBeenCalledWith(mockDb, 1);
         });
 
-        test('returns 400 if skill ID is missing', async () => {
-            const response = await DELETE(new Request('http://localhost/skills', {
-                method: 'DELETE',
-                body: JSON.stringify({}), // Missing ID
-                headers: { 'Content-Type': 'application/json' },
-            }));
+        test('returns 400 when skill ID is missing', async () => {
+            const response = await DELETE(jsonRequest('DELETE', {}));
 
             expect(response.status).toBe(400);
             expect(await response.json()).toEqual({ error: 'Missing skill ID' });
+            expect(deleteSkillMock).not.toHaveBeenCalled();
         });
 
-        test('returns 404 if skill does not exist', async () => {
-            mockDb.prepare().run.mockResolvedValue({ changes: 0 }); // Simulate no rows deleted
-            const response = await DELETE(new Request('http://localhost/skills', {
+        test('returns 400 for invalid JSON', async () => {
+            const response = await DELETE(new Request('http://localhost/api/skills', {
                 method: 'DELETE',
-                body: JSON.stringify({ id: 999 }), // Nonexistent ID
-                headers: { 'Content-Type': 'application/json' },
+                body: '{',
             }));
+
+            expect(response.status).toBe(400);
+            expect(await response.json()).toEqual({ error: 'Invalid JSON body' });
+            expect(deleteSkillMock).not.toHaveBeenCalled();
+        });
+
+        test('maps missing skills to 404', async () => {
+            deleteSkillMock.mockRejectedValue(new SkillNotFoundError());
+
+            const response = await DELETE(jsonRequest('DELETE', { id: 999 }));
 
             expect(response.status).toBe(404);
             expect(await response.json()).toEqual({ error: 'Skill not found' });
         });
 
-        test('handles database errors gracefully', async () => {
-            mockDb.prepare().run.mockRejectedValue(new Error('Database error'));
+        test('returns 500 when deletion fails unexpectedly', async () => {
+            deleteSkillMock.mockRejectedValue(new Error('Database error'));
 
-            const response = await DELETE(new Request('http://localhost/skills', {
-                method: 'DELETE',
-                body: JSON.stringify({ id: existingSkill.id }),
-                headers: { 'Content-Type': 'application/json' },
-            }));
+            const response = await DELETE(jsonRequest('DELETE', { id: 1 }));
 
             expect(response.status).toBe(500);
             expect(await response.json()).toEqual({ error: 'Failed to delete skill' });
