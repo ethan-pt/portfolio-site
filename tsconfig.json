@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "types": ["./worker-configuration.d.ts", "node"],
     "target": "ES2017",
     "lib": [
       "dom",
