@@ -8,7 +8,7 @@ import {
     MissingRequiredProjectFieldsError,
     ProjectNotFoundError,
     InvalidProjectFeaturedOrderStateError,
-} from '@/lib/projects';
+} from '@/lib/server/projects';
 import type { Project } from '@/types/db';
 
 type ProjectRequestBody = Omit<Project, 'id' | 'created_at'>;

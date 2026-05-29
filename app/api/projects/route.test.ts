@@ -9,7 +9,7 @@ import {
     MissingRequiredProjectFieldsError,
     ProjectNotFoundError,
     InvalidProjectFeaturedOrderStateError,
-} from '@/lib/projects';
+} from '@/lib/server/projects';
 import type { Project } from '@/types/db';
 import { GET, POST, PATCH, DELETE } from './route';
 
@@ -17,7 +17,7 @@ vi.mock('@opennextjs/cloudflare', () => ({
     getCloudflareContext: vi.fn(),
 }));
 
-vi.mock('@/lib/projects', () => {
+vi.mock('@/lib/data/projects', () => {
     class ProjectNotFoundError extends Error {
         constructor(message = 'Project not found') {
             super(message);

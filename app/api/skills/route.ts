@@ -7,7 +7,7 @@ import {
     NoFieldsToUpdateError,
     MissingRequiredSkillFieldsError,
     SkillNotFoundError,
-} from '@/lib/skills';
+} from '@/lib/server/skills';
 import type { Skill } from '@/types/db';
 
 type SkillRequestBody = Omit<Skill, 'id' | 'created_at'>;

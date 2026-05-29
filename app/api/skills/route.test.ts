@@ -8,7 +8,7 @@ import {
     NoFieldsToUpdateError,
     MissingRequiredSkillFieldsError,
     SkillNotFoundError,
-} from '@/lib/skills';
+} from '@/lib/server/skills';
 import type { Skill } from '@/types/db';
 import { GET, POST, PATCH, DELETE } from './route';
 
@@ -16,7 +16,7 @@ vi.mock('@opennextjs/cloudflare', () => ({
     getCloudflareContext: vi.fn(),
 }));
 
-vi.mock('@/lib/skills', () => {
+vi.mock('@/lib/data/skills', () => {
     class SkillNotFoundError extends Error {
         constructor(message = 'Skill not found') {
             super(message);
