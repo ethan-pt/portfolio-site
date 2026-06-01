@@ -1,3 +1,4 @@
+import type { SkillDto } from '@/types/api';
 import type { Skill } from '@/types/db';
 
 export class SkillNotFoundError extends Error {
@@ -21,12 +22,41 @@ export class MissingRequiredSkillFieldsError extends Error {
     }
 }
 
+export class SkillConflictError extends Error {
+    constructor(message = 'Skill conflicts with an existing record') {
+        super(message);
+        this.name = 'SkillConflictError';
+    }
+}
+
+function normalizeSkill(skill: Skill): Skill {
+    return {
+        ...skill,
+        featured: Boolean(skill.featured),
+    };
+}
+
+function isConflictError(error: unknown): boolean {
+    return error instanceof Error && /unique|constraint/i.test(error.message);
+}
+
+export async function listSkillDtos(db: D1Database): Promise<SkillDto[]> {
+    const skills = await listSkills(db);
+
+    return skills.map((skill) => ({
+        id: skill.id,
+        name: skill.name,
+        category: skill.category,
+        featured: skill.featured,
+    }));
+}
+
 export async function listSkills(db: D1Database): Promise<Skill[]> {
     const { results } = await db.prepare(
         'SELECT * FROM skills ORDER BY featured DESC, category ASC, name ASC'
     ).all<Skill>();
 
-    return results;
+    return results.map(normalizeSkill);
 }
 
 export async function createSkill(db: D1Database, skillData: Omit<Skill, 'id' | 'created_at'>): Promise<Skill> {
@@ -36,17 +66,24 @@ export async function createSkill(db: D1Database, skillData: Omit<Skill, 'id' | 
         throw new MissingRequiredSkillFieldsError();
     }
 
-    const result = await db.prepare(
-        'INSERT INTO skills (name, category, featured) VALUES (?, ?, ?)'
-    ).bind(name, category, featured).run();
+    try {
+        const result = await db.prepare(
+            'INSERT INTO skills (name, category, featured) VALUES (?, ?, ?)'
+        ).bind(name, category, featured).run();
 
-    return {
-        id: result.meta.last_row_id,
-        name,
-        category,
-        featured,
-        created_at: new Date().toISOString(),
-    };
+        return {
+            id: result.meta.last_row_id,
+            name,
+            category,
+            featured,
+            created_at: new Date().toISOString(),
+        };
+    } catch (error) {
+        if (isConflictError(error)) {
+            throw new SkillConflictError();
+        }
+        throw error;
+    }
 }
 
 export async function getSkillById(db: D1Database, id: number): Promise<Skill | null> {
@@ -54,10 +91,10 @@ export async function getSkillById(db: D1Database, id: number): Promise<Skill | 
         'SELECT * FROM skills WHERE id = ?'
     ).bind(id).first<Skill>();
 
-    return skill ?? null;
+    return skill ? normalizeSkill(skill) : null;
 }
 
-export async function updateSkill(db: D1Database, id: number, skillData: Partial<Skill>): Promise<{ changes: number }> {
+export async function updateSkill(db: D1Database, id: number, skillData: Partial<Skill>): Promise<Skill> {
     const existingSkill = await getSkillById(db, id);
 
     if (!existingSkill) {
@@ -88,11 +125,24 @@ export async function updateSkill(db: D1Database, id: number, skillData: Partial
 
     values.push(id);
 
-    const result = await db.prepare(
-        `UPDATE skills SET ${fields.join(', ')} WHERE id = ?`
-    ).bind(...values).run();
+    try {
+        await db.prepare(
+            `UPDATE skills SET ${fields.join(', ')} WHERE id = ?`
+        ).bind(...values).run();
+    } catch (error) {
+        if (isConflictError(error)) {
+            throw new SkillConflictError();
+        }
+        throw error;
+    }
 
-    return { changes: result.meta.changes };
+    const updatedSkill = await getSkillById(db, id);
+
+    if (!updatedSkill) {
+        throw new SkillNotFoundError();
+    }
+
+    return updatedSkill;
 }
 
 export async function deleteSkill(db: D1Database, id: number): Promise<void> {
