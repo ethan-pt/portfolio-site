@@ -1,6 +1,6 @@
-import type { Skill } from '@/types/db';
+import type { SkillDto } from '@/types/api';
 
-export async function getSkills(): Promise<Skill[]> {
+export async function getSkills(): Promise<SkillDto[]> {
     const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/skills`, {
         cache: 'no-store',
     });

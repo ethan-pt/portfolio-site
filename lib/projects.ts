@@ -1,6 +1,6 @@
-import type { Project } from '@/types/db';
+import type { ProjectDto } from '@/types/api';
 
-export async function getProjects(): Promise<Project[]> {
+export async function getProjects(): Promise<ProjectDto[]> {
     const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/projects`, {
         cache: 'no-store',
     });
