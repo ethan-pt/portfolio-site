@@ -2,7 +2,8 @@ export interface Project {
     id: number;
     title: string;
     description: string;
-    image_url?: string;
+    image_url?: string | null;
+    image_key?: string | null;
     link: string;
     category: string;
     featured: boolean;
