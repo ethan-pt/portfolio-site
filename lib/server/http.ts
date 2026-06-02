@@ -45,11 +45,19 @@ export function assertSameOrigin(request: Request, siteOrigin: string): void {
     const origin = request.headers.get('origin');
     const referer = request.headers.get('referer');
 
-    if (origin && new URL(origin).origin !== expectedOrigin) {
-        throw new HttpError(403, 'Invalid request origin');
-    }
+    try {
+        if (origin && new URL(origin).origin !== expectedOrigin) {
+            throw new HttpError(403, 'Invalid request origin');
+        }
 
-    if (!origin && referer && new URL(referer).origin !== expectedOrigin) {
+        if (!origin && referer && new URL(referer).origin !== expectedOrigin) {
+            throw new HttpError(403, 'Invalid request origin');
+        }
+    } catch (error) {
+        if (error instanceof HttpError) {
+            throw error;
+        }
+
         throw new HttpError(403, 'Invalid request origin');
     }
 }
