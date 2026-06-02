@@ -130,6 +130,8 @@ export async function verifyManagedR2Object(bucket: R2Bucket, key: string): Prom
     if (!object) {
         throw new HttpError(404, 'Uploaded object not found');
     }
+
+    assertUploadContent(object.httpMetadata?.contentType ?? '', object.size);
 }
 
 export async function createSignedR2PutUrl(env: R2SigningEnv, contentType: string, size: number): Promise<SignedUpload> {

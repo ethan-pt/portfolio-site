@@ -23,7 +23,11 @@ describe('R2 helpers', () => {
 
     test('verifies and deletes only managed project image keys', async () => {
         const bucket = {
-            head: vi.fn().mockResolvedValue({ key: 'projects/image.webp' }),
+            head: vi.fn().mockResolvedValue({
+                key: 'projects/image.webp',
+                size: 1234,
+                httpMetadata: { contentType: 'image/webp' },
+            }),
             delete: vi.fn().mockResolvedValue(undefined),
         } as unknown as R2Bucket;
 
