@@ -63,6 +63,61 @@ function validateProjectFeaturedOrderState(featured: boolean, orderIndex: number
     }
 }
 
+function createProjectId(): number {
+    const bytes = new Uint32Array(1);
+    crypto.getRandomValues(bytes);
+    return bytes[0] || createProjectId();
+}
+
+function projectUpdateFields(projectData: Partial<Project>): { fields: string[]; values: unknown[] } {
+    const updates: Partial<Omit<Project, 'id' | 'created_at'>> = {
+        title: projectData.title,
+        description: projectData.description,
+        image_url: projectData.image_url,
+        image_key: projectData.image_key,
+        link: projectData.link,
+        category: projectData.category,
+        featured: projectData.featured,
+        order_index: projectData.order_index,
+    };
+
+    const fields: string[] = [];
+    const values: unknown[] = [];
+
+    for (const [key, value] of Object.entries(updates)) {
+        if (value === undefined) {
+            continue;
+        }
+
+        fields.push(`${key} = ?`);
+        values.push(value);
+    }
+
+    return { fields, values };
+}
+
+function projectSkillStatements(db: D1Database, projectId: number, skillIds: number[]): D1PreparedStatement[] {
+    const uniqueSkillIds = [...new Set(skillIds)];
+
+    return [
+        db.prepare('DELETE FROM project_skills WHERE project_id = ?').bind(projectId),
+        ...uniqueSkillIds.map((skillId) => (
+            db.prepare('INSERT INTO project_skills (project_id, skill_id) VALUES (?, ?)').bind(projectId, skillId)
+        )),
+    ];
+}
+
+async function batchProjectWrite(db: D1Database, statements: D1PreparedStatement[]): Promise<void> {
+    try {
+        await db.batch(statements);
+    } catch (error) {
+        if (isConflictError(error)) {
+            throw new ProjectConflictError('Project skill relationship conflicts with existing data');
+        }
+        throw error;
+    }
+}
+
 export async function listProjectDtos(db: D1Database): Promise<ProjectDto[]> {
     const { results } = await db.prepare(
         `SELECT
@@ -152,6 +207,47 @@ export async function createProject(db: D1Database, projectData: Omit<Project, '
     }
 }
 
+export async function createProjectWithSkills(db: D1Database, projectData: Omit<Project, 'id' | 'created_at'>, skillIds: number[]): Promise<Project> {
+    const { title, description, image_url, image_key, link, category, featured, order_index } = projectData;
+
+    if (!title || !description || !link || !category || typeof featured !== 'boolean') {
+        throw new MissingRequiredProjectFieldsError();
+    }
+
+    validateProjectFeaturedOrderState(featured, order_index);
+
+    const id = createProjectId();
+
+    const statements = [
+        db.prepare(
+            'INSERT INTO projects (id, title, description, image_url, image_key, link, category, featured, order_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(id, title, description, image_url ?? null, image_key ?? null, link, category, featured, order_index),
+        ...projectSkillStatements(db, id, skillIds),
+    ];
+
+    try {
+        await db.batch(statements);
+
+        return {
+            id,
+            title,
+            description,
+            image_url: image_url ?? null,
+            image_key: image_key ?? null,
+            link,
+            category,
+            featured,
+            order_index,
+            created_at: new Date().toISOString(),
+        };
+    } catch (error) {
+        if (isConflictError(error)) {
+            throw new ProjectConflictError();
+        }
+        throw error;
+    }
+}
+
 export async function getProjectById(db: D1Database, id: number): Promise<Project | null> {
     const project = await db.prepare(
         'SELECT * FROM projects WHERE id = ?'
@@ -221,6 +317,47 @@ export async function updateProject(db: D1Database, id: number, projectData: Par
     return updatedProject;
 }
 
+export async function updateProjectWithSkills(db: D1Database, id: number, projectData: Partial<Project>, skillIds: number[] | null): Promise<Project> {
+    const existingProject = await getProjectById(db, id);
+
+    if (!existingProject) {
+        throw new ProjectNotFoundError();
+    }
+
+    const finalFeatured = projectData.featured !== undefined ? projectData.featured : existingProject.featured;
+    const finalOrderIndex = projectData.order_index !== undefined ? projectData.order_index : existingProject.order_index;
+
+    validateProjectFeaturedOrderState(finalFeatured, finalOrderIndex);
+
+    const { fields, values } = projectUpdateFields(projectData);
+
+    if (fields.length === 0 && skillIds === null) {
+        throw new NoFieldsToUpdateError();
+    }
+
+    const statements: D1PreparedStatement[] = [];
+
+    if (fields.length > 0) {
+        statements.push(db.prepare(
+            `UPDATE projects SET ${fields.join(', ')} WHERE id = ?`
+        ).bind(...values, id));
+    }
+
+    if (skillIds !== null) {
+        statements.push(...projectSkillStatements(db, id, skillIds));
+    }
+
+    await batchProjectWrite(db, statements);
+
+    const updatedProject = await getProjectById(db, id);
+
+    if (!updatedProject) {
+        throw new ProjectNotFoundError();
+    }
+
+    return updatedProject;
+}
+
 export async function deleteProject(db: D1Database, id: number): Promise<void> {
     const result = await db.prepare(
         'DELETE FROM projects WHERE id = ?'
@@ -238,18 +375,5 @@ export async function replaceProjectSkills(db: D1Database, projectId: number, sk
         throw new ProjectNotFoundError();
     }
 
-    const uniqueSkillIds = [...new Set(skillIds)];
-
-    await db.prepare('DELETE FROM project_skills WHERE project_id = ?').bind(projectId).run();
-
-    for (const skillId of uniqueSkillIds) {
-        try {
-            await db.prepare('INSERT INTO project_skills (project_id, skill_id) VALUES (?, ?)').bind(projectId, skillId).run();
-        } catch (error) {
-            if (isConflictError(error)) {
-                throw new ProjectConflictError('Project skill relationship conflicts with existing data');
-            }
-            throw error;
-        }
-    }
+    await batchProjectWrite(db, projectSkillStatements(db, projectId, skillIds));
 }

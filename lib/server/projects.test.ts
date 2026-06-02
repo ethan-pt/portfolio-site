@@ -25,9 +25,15 @@ function createMockDb() {
 
     const db = {
         prepare: vi.fn(() => statement),
+        batch: vi.fn(),
     } as unknown as D1Database;
 
-    return { db, statement, prepare: db.prepare as ReturnType<typeof vi.fn> };
+    return {
+        db,
+        statement,
+        prepare: db.prepare as ReturnType<typeof vi.fn>,
+        batch: db.batch as ReturnType<typeof vi.fn>,
+    };
 }
 
 describe('project data access', () => {
@@ -163,12 +169,13 @@ describe('project data access', () => {
 
     test('replaces project skill relationships', async () => {
         mock.statement.first.mockResolvedValue(existingProject);
-        mock.statement.run.mockResolvedValue({ meta: { changes: 1 } });
+        mock.batch.mockResolvedValue([]);
 
         await replaceProjectSkills(mock.db, 1, [2, 2, 3]);
 
         expect(mock.prepare).toHaveBeenCalledWith('DELETE FROM project_skills WHERE project_id = ?');
         expect(mock.prepare).toHaveBeenCalledWith('INSERT INTO project_skills (project_id, skill_id) VALUES (?, ?)');
+        expect(mock.batch).toHaveBeenCalledTimes(1);
     });
 
     test('deletes an existing project and rejects missing deletes', async () => {
