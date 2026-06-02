@@ -19,7 +19,9 @@ vi.mock('@/lib/server/projects', async () => {
     return {
         ...actual,
         createProject: vi.fn(),
+        createProjectWithSkills: vi.fn(),
         updateProject: vi.fn(),
+        updateProjectWithSkills: vi.fn(),
         deleteProject: vi.fn(),
         getProjectById: vi.fn(),
         replaceProjectSkills: vi.fn(),

@@ -1,14 +1,15 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import {
     createProject,
+    createProjectWithSkills,
     deleteProject,
     getProjectById,
     InvalidProjectFeaturedOrderStateError,
     NoFieldsToUpdateError,
     ProjectConflictError,
     ProjectNotFoundError,
-    replaceProjectSkills,
     updateProject,
+    updateProjectWithSkills,
 } from '@/lib/server/projects';
 import { assertAdminMutation } from '@/lib/server/admin';
 import { HttpError, errorResponse, mapUnknownError, readJsonObject } from '@/lib/server/http';
@@ -64,11 +65,9 @@ export async function POST(request: Request): Promise<Response> {
         const skillIds = parseSkillIds(body.skill_ids);
         delete body.skill_ids;
         const projectData = applyManagedImageUrl(env, parseCreateProject(body));
-        const newProject = await createProject(env.DB, projectData);
-
-        if (skillIds) {
-            await replaceProjectSkills(env.DB, newProject.id, skillIds);
-        }
+        const newProject = skillIds === null
+            ? await createProject(env.DB, projectData)
+            : await createProjectWithSkills(env.DB, projectData, skillIds);
 
         return Response.json(newProject, { status: 201 });
     } catch (error) {
@@ -93,11 +92,9 @@ export async function PATCH(request: Request): Promise<Response> {
         const skillIds = parseSkillIds(body.skill_ids);
         delete body.skill_ids;
         const projectData = applyManagedImageUrl(env, parseUpdateProject(body));
-        const updatedProject = await updateProject(env.DB, id, projectData);
-
-        if (skillIds) {
-            await replaceProjectSkills(env.DB, id, skillIds);
-        }
+        const updatedProject = skillIds === null
+            ? await updateProject(env.DB, id, projectData)
+            : await updateProjectWithSkills(env.DB, id, projectData, skillIds);
 
         if (projectData.image_key !== undefined && existingProject.image_key !== projectData.image_key) {
             await deleteManagedR2Object(env.BUCKET, existingProject.image_key);
