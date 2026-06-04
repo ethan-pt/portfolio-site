@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Ethan Tubbe - Software Engineer",
   description: "Software engineer with a passion for solving hard problems and building great products.",
+  icons: {
+    icon: [{ url: "/favicon.ico", sizes: "any" }],
+    shortcut: "/favicon.ico",
+  },
   openGraph: {
     title: "Ethan Tubbe - Software Engineer",
     description: "Software engineer with a passion for solving hard problems and building great products.",
