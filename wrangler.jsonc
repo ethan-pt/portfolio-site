@@ -21,5 +21,14 @@
             "binding": "BUCKET",
             "bucket_name": "portfolio-images"
         }
-    ]
+    ],
+    "observability": {
+        "logs": {
+            "enabled": true,
+            "invocation_logs": true
+        },
+        "traces": {
+            "enabled": false
+        }
+    }
 }
