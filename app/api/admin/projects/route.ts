@@ -5,6 +5,7 @@ import {
     deleteProject,
     getProjectById,
     InvalidProjectFeaturedOrderStateError,
+    listAdminProjectDtos,
     NoFieldsToUpdateError,
     ProjectConflictError,
     ProjectNotFoundError,
@@ -12,6 +13,7 @@ import {
     updateProjectWithSkills,
 } from '@/lib/server/projects';
 import { assertAdminMutation } from '@/lib/server/admin';
+import { requireAdminUser } from '@/lib/server/auth';
 import { HttpError, errorResponse, mapUnknownError, readJsonObject } from '@/lib/server/http';
 import { deleteManagedR2Object, isManagedProjectImageKey, publicR2Url } from '@/lib/server/r2';
 import { idFromBody, parseCreateProject, parseUpdateProject } from '@/lib/server/validation';
@@ -73,6 +75,18 @@ export async function POST(request: Request): Promise<Response> {
     } catch (error) {
         const mapped = mapProjectError(error);
         return mapped ?? mapUnknownError(error, 'Failed to create project');
+    }
+}
+
+export async function GET(request: Request): Promise<Response> {
+    const { env } = getCloudflareContext();
+
+    try {
+        await requireAdminUser(request, env);
+        const projects = await listAdminProjectDtos(env.DB);
+        return Response.json(projects, { status: 200 });
+    } catch (error) {
+        return mapUnknownError(error, 'Failed to fetch admin projects');
     }
 }
 

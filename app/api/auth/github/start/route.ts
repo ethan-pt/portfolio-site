@@ -7,9 +7,14 @@ export async function GET(): Promise<Response> {
 
     try {
         const state = createOAuthState();
-        const response = Response.redirect(githubAuthorizeUrl(env, state), 302);
-        response.headers.append('Set-Cookie', oauthStateSetCookie(state));
-        return response;
+
+        return new Response(null, {
+            status: 302,
+            headers: {
+                Location: githubAuthorizeUrl(env, state),
+                'Set-Cookie': oauthStateSetCookie(state),
+            },
+        });
     } catch (error) {
         return mapUnknownError(error, 'Failed to start GitHub login');
     }

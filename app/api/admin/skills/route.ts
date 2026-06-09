@@ -1,6 +1,7 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import {
     createSkill,
+    listSkillDtos,
     deleteSkill,
     NoFieldsToUpdateError,
     SkillConflictError,
@@ -8,6 +9,7 @@ import {
     updateSkill,
 } from '@/lib/server/skills';
 import { assertAdminMutation } from '@/lib/server/admin';
+import { requireAdminUser } from '@/lib/server/auth';
 import { errorResponse, mapUnknownError, readJsonObject } from '@/lib/server/http';
 import { idFromBody, parseCreateSkill, parseUpdateSkill } from '@/lib/server/validation';
 
@@ -38,6 +40,18 @@ export async function POST(request: Request): Promise<Response> {
     } catch (error) {
         const mapped = mapSkillError(error);
         return mapped ?? mapUnknownError(error, 'Failed to create skill');
+    }
+}
+
+export async function GET(request: Request): Promise<Response> {
+    const { env } = getCloudflareContext();
+
+    try {
+        await requireAdminUser(request, env);
+        const skills = await listSkillDtos(env.DB);
+        return Response.json(skills, { status: 200 });
+    } catch (error) {
+        return mapUnknownError(error, 'Failed to fetch admin skills');
     }
 }
 

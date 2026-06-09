@@ -31,10 +31,15 @@ export async function GET(request: Request): Promise<Response> {
             githubId: String(githubUser.id),
             login: githubUser.login,
         });
-        const response = Response.redirect(`${env.SITE_ORIGIN ?? new URL(request.url).origin}/admin`, 302);
-        response.headers.append('Set-Cookie', adminSessionSetCookie(jwt));
-        response.headers.append('Set-Cookie', clearCookie('portfolio_oauth_state'));
-        return response;
+
+        return new Response(null, {
+            status: 302,
+            headers: [
+                ['Location', `${env.SITE_ORIGIN ?? new URL(request.url).origin}/admin`],
+                ['Set-Cookie', adminSessionSetCookie(jwt)],
+                ['Set-Cookie', clearCookie('portfolio_oauth_state')],
+            ],
+        });
     } catch (error) {
         return mapUnknownError(error, 'Failed to complete GitHub login');
     }
