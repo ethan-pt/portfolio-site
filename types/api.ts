@@ -24,6 +24,10 @@ export interface ProjectDto {
     skills: ProjectSkillDto[];
 }
 
+export interface AdminProjectDto extends ProjectDto {
+    image_key: string | null;
+}
+
 export interface AdminUserDto {
     authenticated: true;
     provider: 'github';
