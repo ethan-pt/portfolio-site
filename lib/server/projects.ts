@@ -1,4 +1,4 @@
-import type { ProjectDto } from '@/types/api';
+import type { AdminProjectDto, ProjectDto } from '@/types/api';
 import type { Project } from '@/types/db';
 
 export class ProjectNotFoundError extends Error {
@@ -118,7 +118,7 @@ async function batchProjectWrite(db: D1Database, statements: D1PreparedStatement
     }
 }
 
-export async function listProjectDtos(db: D1Database): Promise<ProjectDto[]> {
+async function listProjectDtoRows(db: D1Database): Promise<AdminProjectDto[]> {
     const { results } = await db.prepare(
         `SELECT
             projects.*,
@@ -132,7 +132,7 @@ export async function listProjectDtos(db: D1Database): Promise<ProjectDto[]> {
         ORDER BY projects.featured DESC, projects.category DESC, projects.order_index ASC, projects.created_at DESC, skills.name ASC`
     ).all<ProjectSkillRow>();
 
-    const projects = new Map<number, ProjectDto>();
+    const projects = new Map<number, AdminProjectDto>();
 
     for (const row of results) {
         let project = projects.get(row.id);
@@ -143,6 +143,7 @@ export async function listProjectDtos(db: D1Database): Promise<ProjectDto[]> {
                 title: row.title,
                 description: row.description,
                 image_url: row.image_url ?? null,
+                image_key: row.image_key ?? null,
                 link: row.link,
                 category: row.category,
                 featured: Boolean(row.featured),
@@ -163,6 +164,26 @@ export async function listProjectDtos(db: D1Database): Promise<ProjectDto[]> {
     }
 
     return [...projects.values()];
+}
+
+export async function listProjectDtos(db: D1Database): Promise<ProjectDto[]> {
+    const projects = await listProjectDtoRows(db);
+
+    return projects.map((project) => ({
+        id: project.id,
+        title: project.title,
+        description: project.description,
+        image_url: project.image_url,
+        link: project.link,
+        category: project.category,
+        featured: project.featured,
+        order_index: project.order_index,
+        skills: project.skills,
+    }));
+}
+
+export async function listAdminProjectDtos(db: D1Database): Promise<AdminProjectDto[]> {
+    return listProjectDtoRows(db);
 }
 
 export async function listProjects(db: D1Database): Promise<Project[]> {
