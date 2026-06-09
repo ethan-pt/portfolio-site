@@ -1,5 +1,20 @@
 import { describe, expect, test } from 'vitest';
-import { adminSessionSetCookie, signAdminJwt, verifyAdminJwt } from './auth';
+import {
+    adminSessionCookie,
+    adminSessionSetCookie,
+    getAdminUser,
+    requireAdminUser,
+    signAdminJwt,
+    verifyAdminJwt,
+} from './auth';
+
+function requestWithSession(jwt: string): Request {
+    return new Request('https://example.com/admin', {
+        headers: {
+            Cookie: `${adminSessionCookie}=${jwt}`,
+        },
+    });
+}
 
 describe('admin auth helpers', () => {
     test('emits Strict secure HttpOnly admin session cookies', () => {
@@ -20,5 +35,47 @@ describe('admin auth helpers', () => {
             login: 'assentt',
             provider: 'github',
         }));
+    });
+
+    test('rejects tampered admin JWT signatures', async () => {
+        const env = { AUTH_COOKIE_SECRET: 'test-secret' };
+        const jwt = await signAdminJwt(env, { githubId: '123', login: 'assentt' });
+        const tamperedJwt = jwt.replace(/\.[^.]+$/, '.invalid');
+
+        await expect(verifyAdminJwt(env, tamperedJwt)).resolves.toBeNull();
+    });
+
+    test('returns an admin user only when the signed session matches the current allowlist', async () => {
+        const env = {
+            AUTH_COOKIE_SECRET: 'test-secret',
+            GITHUB_ADMIN_ID: '123',
+        };
+        const jwt = await signAdminJwt(env, { githubId: '123', login: 'assentt' });
+
+        await expect(getAdminUser(requestWithSession(jwt), env)).resolves.toEqual({
+            authenticated: true,
+            provider: 'github',
+            githubId: '123',
+            login: 'assentt',
+        });
+    });
+
+    test('rejects a valid signed session when the GitHub identity is no longer allowed', async () => {
+        const signingEnv = {
+            AUTH_COOKIE_SECRET: 'test-secret',
+            GITHUB_ADMIN_ID: '123',
+        };
+        const currentEnv = {
+            AUTH_COOKIE_SECRET: 'test-secret',
+            GITHUB_ADMIN_ID: '456',
+        };
+        const jwt = await signAdminJwt(signingEnv, { githubId: '123', login: 'assentt' });
+        const request = requestWithSession(jwt);
+
+        await expect(getAdminUser(request, currentEnv)).resolves.toBeNull();
+        await expect(requireAdminUser(request, currentEnv)).rejects.toMatchObject({
+            status: 401,
+            message: 'Authentication required',
+        });
     });
 });

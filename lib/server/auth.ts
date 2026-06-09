@@ -55,6 +55,29 @@ function base64UrlDecodeString(value: string): string {
     return new TextDecoder().decode(bytes);
 }
 
+function base64UrlDecodeBytes(value: string): Uint8Array {
+    const padded = value.replaceAll('-', '+').replaceAll('_', '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+    }
+
+    return bytes;
+}
+
+function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
+    let difference = left.length ^ right.length;
+    const length = Math.max(left.length, right.length);
+
+    for (let index = 0; index < length; index += 1) {
+        difference |= (left[index] ?? 0) ^ (right[index] ?? 0);
+    }
+
+    return difference === 0;
+}
+
 async function hmacSha256(secret: string, value: string): Promise<Uint8Array> {
     const key = await crypto.subtle.importKey(
         'raw',
@@ -146,9 +169,16 @@ export async function verifyAdminJwt(env: AuthEnv, jwt: string): Promise<AdminJw
 
     const [header, payload, signature] = parts;
     const signingInput = `${header}.${payload}`;
-    const expectedSignature = base64UrlEncodeBytes(await hmacSha256(getRequiredEnv(env, 'AUTH_COOKIE_SECRET'), signingInput));
+    const expectedSignature = await hmacSha256(getRequiredEnv(env, 'AUTH_COOKIE_SECRET'), signingInput);
+    let actualSignature: Uint8Array;
 
-    if (signature !== expectedSignature) {
+    try {
+        actualSignature = base64UrlDecodeBytes(signature);
+    } catch {
+        return null;
+    }
+
+    if (!equalBytes(actualSignature, expectedSignature)) {
         return null;
     }
 
@@ -166,6 +196,21 @@ export async function verifyAdminJwt(env: AuthEnv, jwt: string): Promise<AdminJw
     return parsed;
 }
 
+function isAllowedGitHubIdentity(env: AuthEnv, user: { id: string | number; login: string }): boolean {
+    const allowedId = env.GITHUB_ADMIN_ID;
+    const allowedLogin = env.GITHUB_ADMIN_LOGIN;
+
+    if (allowedId && String(user.id) === allowedId) {
+        return true;
+    }
+
+    if (allowedLogin && user.login.toLowerCase() === allowedLogin.toLowerCase()) {
+        return true;
+    }
+
+    return false;
+}
+
 export async function getAdminUser(request: Request, env: AuthEnv): Promise<AdminUserDto | null> {
     const jwt = parseCookies(request).get(adminSessionCookie);
 
@@ -176,6 +221,10 @@ export async function getAdminUser(request: Request, env: AuthEnv): Promise<Admi
     const payload = await verifyAdminJwt(env, jwt);
 
     if (!payload) {
+        return null;
+    }
+
+    if (!isAllowedGitHubIdentity(env, { id: payload.sub, login: payload.login })) {
         return null;
     }
 
@@ -198,14 +247,7 @@ export async function requireAdminUser(request: Request, env: AuthEnv): Promise<
 }
 
 export function assertAllowedGitHubUser(env: AuthEnv, user: { id: number; login: string }): void {
-    const allowedId = env.GITHUB_ADMIN_ID;
-    const allowedLogin = env.GITHUB_ADMIN_LOGIN;
-
-    if (allowedId && String(user.id) === allowedId) {
-        return;
-    }
-
-    if (allowedLogin && user.login.toLowerCase() === allowedLogin.toLowerCase()) {
+    if (isAllowedGitHubIdentity(env, user)) {
         return;
     }
 
