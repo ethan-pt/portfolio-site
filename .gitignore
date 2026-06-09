@@ -46,8 +46,4 @@ next-env.d.ts
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
-.wrangler/state/
-.wrangler/tmp/bundle-FjjPFZ/middleware-insertion-facade.js
-.wrangler/tmp/bundle-FjjPFZ/middleware-loader.entry.ts
-.wrangler/tmp/dev-6LVC8g/worker.js
-.wrangler/tmp/dev-6LVC8g/worker.js.map
+.wrangler/
