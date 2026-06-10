@@ -6,10 +6,13 @@ type HeroProps = {
 
 export function Hero({ contact }: HeroProps) {
   return (
-    <section className="relative flex min-h-[calc(100svh-73px)] items-center px-5 py-12 md:px-8">
-      <div className="absolute inset-x-0 top-0 -z-10 h-96 bg-[radial-gradient(circle_at_top_left,#301B3F_0%,rgba(48,27,63,0.36)_34%,rgba(21,21,21,0)_72%)]" />
-      <div className="mx-auto w-full max-w-6xl">
-        <div className="max-w-4xl">
+    <section className="relative isolate flex min-h-[calc(100svh-73px)] items-center overflow-hidden border-b border-[#B4A5A5]/10 px-5 py-12 md:px-8">
+      <div className="absolute inset-0 z-0 bg-[linear-gradient(128deg,#151515_0%,#17141b_38%,#301B3F_72%,#3C415C_100%)]" />
+      <div className="absolute inset-0 z-0 bg-[linear-gradient(90deg,rgba(21,21,21,0.9)_0%,rgba(21,21,21,0.74)_48%,rgba(21,21,21,0.42)_100%)]" />
+      <div className="absolute inset-0 z-0 opacity-[0.08] [background-image:linear-gradient(rgba(180,165,165,0.55)_1px,transparent_1px),linear-gradient(90deg,rgba(180,165,165,0.55)_1px,transparent_1px)] [background-size:80px_80px]" />
+      <div className="relative z-10 mx-auto w-full max-w-6xl">
+        <div className="relative max-w-4xl border-l border-[#B4A5A5]/25 pl-6 md:pl-8">
+          <div className="absolute -left-px top-0 h-28 w-px bg-[#B4A5A5]" />
           <p className="text-sm font-semibold tracking-[0.22em] text-[#B4A5A5] uppercase">
             Backend-focused software engineer
           </p>
