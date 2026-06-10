@@ -31,14 +31,6 @@ export function ContactSection({ contact }: ContactSectionProps) {
           >
             GitHub
           </a>
-          <a
-            href={contact.linkedInUrl}
-            className="rounded-full border border-[#B4A5A5]/30 px-6 py-3 text-center text-sm font-bold text-white transition hover:border-[#B4A5A5]/70 hover:bg-[#B4A5A5]/10"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            LinkedIn
-          </a>
           {contact.resumeUrl ? (
             <a
               href={contact.resumeUrl}
@@ -49,6 +41,14 @@ export function ContactSection({ contact }: ContactSectionProps) {
               Resume
             </a>
           ) : null}
+          <a
+            href={contact.linkedInUrl}
+            className="rounded-full border border-[#B4A5A5]/30 px-6 py-3 text-center text-sm font-bold text-white transition hover:border-[#B4A5A5]/70 hover:bg-[#B4A5A5]/10"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            LinkedIn
+          </a>
         </div>
       </div>
     </section>
