@@ -8,16 +8,28 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { listProjectDtos } from "@/lib/server/projects";
 import { listSkillDtos } from "@/lib/server/skills";
 import { getPortfolioContact } from "@/lib/portfolio-contact";
+import type { ProjectDto, SkillDto } from "@/types/api";
 
 export const dynamic = "force-dynamic";
+
+async function getHomeData(env: CloudflareEnv): Promise<{ projects: ProjectDto[]; skills: SkillDto[] }> {
+  try {
+    const [projects, skills] = await Promise.all([
+      listProjectDtos(env.DB),
+      listSkillDtos(env.DB),
+    ]);
+
+    return { projects, skills };
+  } catch (error) {
+    console.error("Failed to load homepage data:", error);
+    return { projects: [], skills: [] };
+  }
+}
 
 export default async function Home() {
   const { env } = await getCloudflareContext({ async: true });
   const contact = getPortfolioContact();
-  const [projects, skills] = await Promise.all([
-    listProjectDtos(env.DB),
-    listSkillDtos(env.DB),
-  ]);
+  const { projects, skills } = await getHomeData(env);
 
   return (
     <main className="min-h-screen bg-[#151515] text-[#f8f5f5]">
