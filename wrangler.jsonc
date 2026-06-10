@@ -11,6 +11,9 @@
         "directory": ".open-next/assets",
         "binding": "ASSETS"
     },
+    "build": {
+        "command": "npm run build:worker"
+    },
     "d1_databases": [
         {
             "binding": "DB",
