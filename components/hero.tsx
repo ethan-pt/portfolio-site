@@ -31,7 +31,7 @@ export function Hero({ contact }: HeroProps) {
               href={contact.emailHref}
               className="rounded-full border border-[#B4A5A5]/30 bg-[#B4A5A5]/10 px-6 py-3 text-center text-sm font-bold text-white transition hover:border-[#B4A5A5]/70 hover:bg-[#B4A5A5]/20"
             >
-              Contact Ethan
+              Contact Me
             </a>
             {contact.resumeUrl ? (
               <a
