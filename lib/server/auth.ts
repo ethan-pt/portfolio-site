@@ -218,7 +218,17 @@ export async function getAdminUser(request: Request, env: AuthEnv): Promise<Admi
         return null;
     }
 
-    const payload = await verifyAdminJwt(env, jwt);
+    let payload: AdminJwtPayload | null;
+    try {
+        payload = await verifyAdminJwt(env, jwt);
+    } catch (error) {
+        if (error instanceof HttpError && error.status === 500) {
+            console.error('Failed to verify admin session:', error.message);
+            return null;
+        }
+
+        throw error;
+    }
 
     if (!payload) {
         return null;
