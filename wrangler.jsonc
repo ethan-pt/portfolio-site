@@ -30,6 +30,12 @@
             "bucket_name": "portfolio-images"
         }
     ],
+    "routes": [
+        {
+            "pattern": "ethan-pt.dev",
+            "custom_domain": true
+        }
+    ],
     "observability": {
         "logs": {
             "enabled": true,
