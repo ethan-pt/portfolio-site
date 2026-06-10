@@ -23,16 +23,9 @@ export function Hero({ contact }: HeroProps) {
             Self-taught, backend-focused software engineer with prior operations experience. I build
             practical web systems, backend services, and tools around real project needs.
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            {["Backend", "Web apps", "Databases", "Automation"].map((item) => (
-              <span
-                key={item}
-                className="rounded-full border border-[#B4A5A5]/20 px-4 py-2 text-sm font-semibold text-[#f8f5f5]"
-              >
-                {item}
-              </span>
-            ))}
-          </div>
+          <p className="mt-7 text-sm font-semibold tracking-[0.16em] text-[#B4A5A5] uppercase">
+            Backend systems / Web apps / Databases / Automation
+          </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <a
               href={contact.emailHref}
