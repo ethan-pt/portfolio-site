@@ -14,14 +14,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Ethan Tubbe - Software Engineer",
-  description: "Software engineer with a passion for solving hard problems and building great products.",
+  description: "Self-taught backend-focused software engineer with prior operations experience, building reliable web systems and production-style projects.",
   icons: {
     icon: [{ url: "/favicon.ico", sizes: "any" }],
     shortcut: "/favicon.ico",
   },
   openGraph: {
     title: "Ethan Tubbe - Software Engineer",
-    description: "Software engineer with a passion for solving hard problems and building great products.",
+    description: "Self-taught backend-focused software engineer with prior operations experience, building reliable web systems and production-style projects.",
     url: "https://ethan-pt.dev/",
     type: "profile",
   },

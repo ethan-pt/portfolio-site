@@ -23,7 +23,7 @@ export function SkillsSection({ skills }: SkillsSectionProps) {
           <p className="text-sm font-semibold tracking-[0.22em] text-[#B4A5A5] uppercase">Skills</p>
           <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">Technical focus</h2>
           <p className="mt-5 text-base leading-7 text-[#f0ebeb]">
-            The stack I am using across backend, full-stack, and deployment-focused projects.
+            What I use day to day across my projects.
           </p>
         </div>
         {skillGroups.size > 0 ? (

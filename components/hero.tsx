@@ -17,11 +17,11 @@ export function Hero({ contact }: HeroProps) {
             Ethan Tubbe
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-[#f2eeee] md:text-xl md:leading-9">
-            I am looking for my first software engineering role, with a focus on backend systems,
-            full-stack web applications, and growing into DevOps and systems design work.
+            Self-taught, backend-focused software engineer with prior operations experience. I build
+            practical web systems, backend services, and tools around real project needs.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            {["Backend", "Full-stack", "DevOps", "Systems design"].map((item) => (
+            {["Backend", "Web apps", "Databases", "Automation"].map((item) => (
               <span
                 key={item}
                 className="rounded-full border border-[#B4A5A5]/20 px-4 py-2 text-sm font-semibold text-[#f8f5f5]"

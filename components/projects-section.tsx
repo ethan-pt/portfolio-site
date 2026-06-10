@@ -12,10 +12,11 @@ export function ProjectsSection({ projects }: ProjectsSectionProps) {
         <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <p className="text-sm font-semibold tracking-[0.22em] text-[#B4A5A5] uppercase">Projects</p>
-            <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">Work samples</h2>
+            <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">Selected work</h2>
           </div>
           <p className="max-w-xl text-base leading-7 text-[#f0ebeb]">
-            A short list of projects that show how I think through data, backend behavior, and user-facing features.
+            Projects that show how I work through data, backend behavior, automation, and the
+            user-facing pieces needed to make a tool useful.
           </p>
         </div>
         {projects.length > 0 ? (

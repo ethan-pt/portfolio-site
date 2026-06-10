@@ -12,7 +12,8 @@ export function ContactSection({ contact }: ContactSectionProps) {
           <p className="text-sm font-semibold tracking-[0.22em] text-[#B4A5A5] uppercase">Contact</p>
           <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">Open to software engineering roles.</h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-[#f4eeee]">
-            Email is the best way to reach me. GitHub, LinkedIn, and my resume are available for quick review.
+            I&apos;m interested in teams that value reliability, clear communication, and steady
+            ownership. Email is the best way to reach me.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 md:min-w-72 md:grid-cols-1">
