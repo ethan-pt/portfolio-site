@@ -24,7 +24,7 @@ export function Hero({ contact }: HeroProps) {
             practical web systems, backend services, and tools around real project needs.
           </p>
           <p className="mt-7 text-sm font-semibold tracking-[0.16em] text-[#B4A5A5] uppercase">
-            Backend systems / Web apps / Databases / Automation
+            Backend / Full-Stack / Automation / Databases
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <a
