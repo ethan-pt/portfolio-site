@@ -23,3 +23,19 @@ export interface ProjectSkill {
     project_id: number;
     skill_id: number;
 }
+
+export interface Category {
+    id: number;
+    name: string;
+    created_at: string;
+}
+
+export interface ProjectCategory {
+    project_id: number;
+    category_id: number;
+}
+
+export interface SkillCategory {
+    skill_id: number;
+    category_id: number;
+}

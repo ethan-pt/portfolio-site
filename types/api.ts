@@ -1,14 +1,19 @@
+export interface CategoryDto {
+    id: number;
+    name: string;
+}
+
 export interface SkillDto {
     id: number;
     name: string;
-    category: string;
+    categories: CategoryDto[];
     featured: boolean;
 }
 
 export interface ProjectSkillDto {
     id: number;
     name: string;
-    category: string;
+    categories: CategoryDto[];
     featured: boolean;
 }
 
@@ -18,7 +23,7 @@ export interface ProjectDto {
     description: string;
     image_url: string | null;
     link: string;
-    category: string;
+    categories: CategoryDto[];
     featured: boolean;
     order_index: number | null;
     skills: ProjectSkillDto[];
