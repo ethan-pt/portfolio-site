@@ -30,7 +30,9 @@ export function SkillsSection({ skills }: SkillsSectionProps) {
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {[...skillGroups.entries()].map(([category, categorySkills]) => (
               <section key={category} className="rounded-lg border border-[#B4A5A5]/15 bg-[#151515]/80 p-6">
-                <h3 className="text-lg font-semibold text-white">{category}</h3>
+                <h3 className="text-lg font-semibold text-white" style={{ cursor: 'default' }}>
+                  {category}
+                </h3>
                 <div className="mt-5 flex flex-wrap gap-2">
                   {categorySkills.map((skill) => (
                     <span
