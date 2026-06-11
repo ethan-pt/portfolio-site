@@ -83,6 +83,10 @@ function toggleId(ids: number[], id: number, checked: boolean): number[] {
     return checked ? [...ids, id] : ids.filter((currentId) => currentId !== id);
 }
 
+function mergeSkillCategoryIds(selectedCategoryIds: number[], skill: SkillDto): number[] {
+    return [...new Set([...selectedCategoryIds, ...skill.categories.map((category) => category.id)])];
+}
+
 function projectToForm(project: AdminProjectDto): ProjectForm {
     return {
         id: project.id,
@@ -725,9 +729,15 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                                         <input
                                             type="checkbox"
                                             checked={projectForm.selectedSkillIds.includes(skill.id)}
-                                            onChange={(event) => setProjectForm({ ...projectForm, selectedSkillIds: toggleId(projectForm.selectedSkillIds, skill.id, event.target.checked) })}
+                                            onChange={(event) => setProjectForm((current) => ({
+                                                ...current,
+                                                selectedSkillIds: toggleId(current.selectedSkillIds, skill.id, event.target.checked),
+                                                selectedCategoryIds: event.target.checked
+                                                    ? mergeSkillCategoryIds(current.selectedCategoryIds, skill)
+                                                    : current.selectedCategoryIds,
+                                            }))}
                                         />
-                                        {skill.name} <span className="text-[#B4A5A5]">{categoryNames(skill.categories)}</span>
+                                        {skill.name}
                                     </label>
                                 ))}
                             </div>
