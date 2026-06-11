@@ -82,7 +82,7 @@ describe('Admin projects API route', () => {
             image_url: 'https://cdn.example.com/projects/image.webp',
             image_key: 'projects/image.webp',
             link: 'https://example.com',
-            category: 'Web',
+            category_ids: [1],
             featured: true,
             order_index: 1,
             created_at: '2026-01-01T00:00:00.000Z',
@@ -94,7 +94,7 @@ describe('Admin projects API route', () => {
             description: 'Site',
             image_key: 'projects/image.webp',
             link: 'https://example.com',
-            category: 'Web',
+            category_ids: [1],
             featured: true,
             order_index: 1,
         }));
@@ -103,7 +103,7 @@ describe('Admin projects API route', () => {
         expect(createProject).toHaveBeenCalledWith(mockDb, expect.objectContaining({
             image_key: 'projects/image.webp',
             image_url: 'https://cdn.example.com/projects/image.webp',
-        }));
+        }), [1]);
     });
 
     test('deletes the owned R2 object before deleting the project row', async () => {

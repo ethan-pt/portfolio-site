@@ -26,7 +26,7 @@ describe('Skills public API route', () => {
     });
 
     test('returns public skill DTOs', async () => {
-        const skills = [{ id: 1, name: 'React', category: 'Frontend', featured: true }];
+        const skills = [{ id: 1, name: 'React', categories: [{ id: 2, name: 'Frontend' }], featured: true }];
         listSkillDtosMock.mockResolvedValue(skills);
 
         const response = await GET();

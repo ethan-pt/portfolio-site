@@ -32,10 +32,10 @@ describe('Projects public API route', () => {
             description: 'Portfolio site',
             image_url: null,
             link: 'https://example.com',
-            category: 'Web',
+            categories: [{ id: 1, name: 'Web' }],
             featured: true,
             order_index: 1,
-            skills: [{ id: 1, name: 'TypeScript', category: 'Language', featured: true }],
+            skills: [{ id: 2, name: 'TypeScript', categories: [{ id: 3, name: 'Language' }], featured: true }],
         }];
         listProjectDtosMock.mockResolvedValue(projects);
 
