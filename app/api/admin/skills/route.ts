@@ -8,12 +8,20 @@ import {
     SkillNotFoundError,
     updateSkill,
 } from '@/lib/server/skills';
+import {
+    CategoryNotFoundError,
+    MissingRequiredCategoryFieldsError,
+} from '@/lib/server/categories';
 import { assertAdminMutation } from '@/lib/server/admin';
 import { requireAdminUser } from '@/lib/server/auth';
 import { errorResponse, mapUnknownError, readJsonObject } from '@/lib/server/http';
-import { idFromBody, parseCreateSkill, parseUpdateSkill } from '@/lib/server/validation';
+import { categoryIdsFromBody, idFromBody, parseCreateSkill, parseUpdateSkill } from '@/lib/server/validation';
 
 function mapSkillError(error: unknown): Response | null {
+    if (error instanceof MissingRequiredCategoryFieldsError || error instanceof CategoryNotFoundError) {
+        return errorResponse(error.message, 400);
+    }
+
     if (error instanceof NoFieldsToUpdateError) {
         return errorResponse('No fields to update', 400);
     }
@@ -35,7 +43,9 @@ export async function POST(request: Request): Promise<Response> {
     try {
         await assertAdminMutation(request, env);
         const body = await readJsonObject(request);
-        const newSkill = await createSkill(env.DB, parseCreateSkill(body));
+        const categoryIds = categoryIdsFromBody(body, true) ?? [];
+        delete body.category_ids;
+        const newSkill = await createSkill(env.DB, parseCreateSkill(body), categoryIds);
         return Response.json(newSkill, { status: 201 });
     } catch (error) {
         const mapped = mapSkillError(error);
@@ -62,7 +72,9 @@ export async function PATCH(request: Request): Promise<Response> {
         await assertAdminMutation(request, env);
         const body = await readJsonObject(request);
         const id = idFromBody(body, 'skill');
-        const updatedSkill = await updateSkill(env.DB, id, parseUpdateSkill(body));
+        const categoryIds = categoryIdsFromBody(body, false);
+        delete body.category_ids;
+        const updatedSkill = await updateSkill(env.DB, id, parseUpdateSkill(body), categoryIds);
         return Response.json(updatedSkill, { status: 200 });
     } catch (error) {
         const mapped = mapSkillError(error);

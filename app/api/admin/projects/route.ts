@@ -12,13 +12,21 @@ import {
     updateProject,
     updateProjectWithSkills,
 } from '@/lib/server/projects';
+import {
+    CategoryNotFoundError,
+    MissingRequiredCategoryFieldsError,
+} from '@/lib/server/categories';
 import { assertAdminMutation } from '@/lib/server/admin';
 import { requireAdminUser } from '@/lib/server/auth';
 import { HttpError, errorResponse, mapUnknownError, readJsonObject } from '@/lib/server/http';
 import { deleteManagedR2Object, isManagedProjectImageKey, publicR2Url } from '@/lib/server/r2';
-import { idFromBody, parseCreateProject, parseUpdateProject } from '@/lib/server/validation';
+import { categoryIdsFromBody, idFromBody, parseCreateProject, parseUpdateProject } from '@/lib/server/validation';
 
 function mapProjectError(error: unknown): Response | null {
+    if (error instanceof MissingRequiredCategoryFieldsError || error instanceof CategoryNotFoundError) {
+        return errorResponse(error.message, 400);
+    }
+
     if (error instanceof NoFieldsToUpdateError) {
         return errorResponse('No fields to update', 400);
     }
@@ -64,12 +72,14 @@ export async function POST(request: Request): Promise<Response> {
     try {
         await assertAdminMutation(request, env);
         const body = await readJsonObject(request);
-        const skillIds = parseSkillIds(body.skill_ids);
+        const skillIds = parseSkillIds(body.skill_ids) ?? [];
+        const categoryIds = categoryIdsFromBody(body, true) ?? [];
         delete body.skill_ids;
+        delete body.category_ids;
         const projectData = applyManagedImageUrl(env, parseCreateProject(body));
-        const newProject = skillIds === null
-            ? await createProject(env.DB, projectData)
-            : await createProjectWithSkills(env.DB, projectData, skillIds);
+        const newProject = skillIds.length === 0
+            ? await createProject(env.DB, projectData, categoryIds)
+            : await createProjectWithSkills(env.DB, projectData, categoryIds, skillIds);
 
         return Response.json(newProject, { status: 201 });
     } catch (error) {
@@ -104,11 +114,13 @@ export async function PATCH(request: Request): Promise<Response> {
         }
 
         const skillIds = parseSkillIds(body.skill_ids);
+        const categoryIds = categoryIdsFromBody(body, false);
         delete body.skill_ids;
+        delete body.category_ids;
         const projectData = applyManagedImageUrl(env, parseUpdateProject(body));
         const updatedProject = skillIds === null
-            ? await updateProject(env.DB, id, projectData)
-            : await updateProjectWithSkills(env.DB, id, projectData, skillIds);
+            ? await updateProject(env.DB, id, projectData, categoryIds)
+            : await updateProjectWithSkills(env.DB, id, projectData, categoryIds, skillIds);
 
         if (projectData.image_key !== undefined && existingProject.image_key !== projectData.image_key) {
             await deleteManagedR2Object(env.BUCKET, existingProject.image_key);

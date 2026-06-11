@@ -12,12 +12,13 @@ const allowedProjectFields = new Set([
     'image_url',
     'image_key',
     'link',
-    'category',
     'featured',
     'order_index',
+    'category_ids',
 ]);
 
-const allowedSkillFields = new Set(['name', 'category', 'featured']);
+const allowedSkillFields = new Set(['name', 'featured', 'category_ids']);
+const allowedCategoryFields = new Set(['name']);
 
 function validateNoUnknownFields(body: Record<string, unknown>, allowedFields: Set<string>): void {
     for (const key of Object.keys(body)) {
@@ -72,7 +73,11 @@ function optionalBooleanField(body: Record<string, unknown>, key: string): boole
     return booleanField(body, key);
 }
 
-function nullableIntegerField(body: Record<string, unknown>, key: string): number | null {
+function optionalNullableIntegerField(body: Record<string, unknown>, key: string): number | null | undefined {
+    if (!(key in body)) {
+        return undefined;
+    }
+
     const value = body[key];
 
     if (value === null) {
@@ -84,14 +89,6 @@ function nullableIntegerField(body: Record<string, unknown>, key: string): numbe
     }
 
     return value as number;
-}
-
-function optionalNullableIntegerField(body: Record<string, unknown>, key: string): number | null | undefined {
-    if (!(key in body)) {
-        return undefined;
-    }
-
-    return nullableIntegerField(body, key);
 }
 
 function validateUrl(value: string, key: string): void {
@@ -115,6 +112,28 @@ export function idFromBody(body: Record<string, unknown>, label: string): number
     return id;
 }
 
+export function categoryIdsFromBody(body: Record<string, unknown>, required: boolean): number[] | null {
+    if (!('category_ids' in body)) {
+        if (required) {
+            throw new HttpError(400, 'At least one category is required');
+        }
+        return null;
+    }
+
+    const categoryIds = body.category_ids;
+
+    if (!Array.isArray(categoryIds) || categoryIds.length === 0 || categoryIds.some((id) => typeof id !== 'number' || !Number.isInteger(id) || id <= 0)) {
+        throw new HttpError(400, 'Invalid category_ids');
+    }
+
+    return [...new Set(categoryIds)];
+}
+
+export function parseCategoryName(body: Record<string, unknown>): string {
+    validateNoUnknownFields(body, allowedCategoryFields);
+    return stringField(body, 'name');
+}
+
 export function parseCreateProject(body: Record<string, unknown>): ProjectCreateInput {
     validateNoUnknownFields(body, allowedProjectFields);
 
@@ -134,7 +153,7 @@ export function parseCreateProject(body: Record<string, unknown>): ProjectCreate
         image_url: imageUrl,
         image_key: imageKey,
         link,
-        category: stringField(body, 'category'),
+        category: '',
         featured: booleanField(body, 'featured'),
         order_index: optionalNullableIntegerField(body, 'order_index') ?? null,
     };
@@ -145,7 +164,7 @@ export function parseUpdateProject(body: Record<string, unknown>): ProjectUpdate
 
     const update: ProjectUpdateInput = {};
 
-    for (const key of ['title', 'description', 'link', 'category'] as const) {
+    for (const key of ['title', 'description', 'link'] as const) {
         if (key in body) {
             update[key] = stringField(body, key);
         }
@@ -186,7 +205,7 @@ export function parseCreateSkill(body: Record<string, unknown>): SkillCreateInpu
 
     return {
         name: stringField(body, 'name'),
-        category: stringField(body, 'category'),
+        category: '',
         featured: booleanField(body, 'featured'),
     };
 }
@@ -198,10 +217,6 @@ export function parseUpdateSkill(body: Record<string, unknown>): SkillUpdateInpu
 
     if ('name' in body) {
         update.name = stringField(body, 'name');
-    }
-
-    if ('category' in body) {
-        update.category = stringField(body, 'category');
     }
 
     const featured = optionalBooleanField(body, 'featured');
