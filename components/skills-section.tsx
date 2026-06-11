@@ -4,18 +4,7 @@ type SkillsSectionProps = {
   skills: SkillDto[];
 };
 
-function groupSkills(skills: SkillDto[]): Map<string, SkillDto[]> {
-  return skills.reduce((groups, skill) => {
-    const group = groups.get(skill.category) || [];
-    group.push(skill);
-    groups.set(skill.category, group);
-    return groups;
-  }, new Map<string, SkillDto[]>());
-}
-
 export function SkillsSection({ skills }: SkillsSectionProps) {
-  const skillGroups = groupSkills(skills);
-
   return (
     <section id="skills" className="scroll-mt-24 border-y border-[#B4A5A5]/10 bg-[#301B3F]/25 px-5 py-20 md:px-8">
       <div className="mx-auto max-w-6xl">
@@ -26,27 +15,29 @@ export function SkillsSection({ skills }: SkillsSectionProps) {
             What I use day to day across my projects.
           </p>
         </div>
-        {skillGroups.size > 0 ? (
+        {skills.length > 0 ? (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {[...skillGroups.entries()].map(([category, categorySkills]) => (
-              <section key={category} className="rounded-lg border border-[#B4A5A5]/15 bg-[#151515]/80 p-6">
-                <h3 className="text-lg font-semibold text-white" style={{ cursor: 'default' }}>
-                  {category}
-                </h3>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {categorySkills.map((skill) => (
-                    <span
-                      key={skill.id}
-                      className={
-                        skill.featured
-                          ? "rounded-full bg-[#B4A5A5] px-3 py-1.5 text-sm font-bold text-[#151515]"
-                          : "rounded-full border border-[#B4A5A5]/20 px-3 py-1.5 text-sm font-semibold text-[#f6f2f2]"
-                      }
-                    >
-                      {skill.name}
+            {skills.map((skill) => (
+              <section key={skill.id} className="rounded-lg border border-[#B4A5A5]/15 bg-[#151515]/80 p-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-semibold text-white" style={{ cursor: 'default' }}>
+                    {skill.name}
+                  </h3>
+                  {skill.featured ? (
+                    <span className="rounded-full bg-[#B4A5A5] px-2.5 py-1 text-xs font-bold text-[#151515]">
+                      Featured
                     </span>
-                  ))}
+                  ) : null}
                 </div>
+                {skill.categories.length > 0 ? (
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {skill.categories.map((category) => (
+                      <span key={category.id} className="rounded-full border border-[#B4A5A5]/20 px-3 py-1.5 text-sm font-semibold text-[#f6f2f2]">
+                        {category.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </section>
             ))}
           </div>

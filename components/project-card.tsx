@@ -50,9 +50,11 @@ export function ProjectCard({ project }: ProjectCardProps) {
       </div>
       <div className="flex flex-col p-6 md:p-8">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="rounded-full border border-[#B4A5A5]/20 px-3 py-1 text-xs font-semibold tracking-[0.14em] text-[#B4A5A5] uppercase">
-            {project.category}
-          </span>
+          {project.categories.map((category) => (
+            <span key={category.id} className="rounded-full border border-[#B4A5A5]/20 px-3 py-1 text-xs font-semibold tracking-[0.14em] text-[#B4A5A5] uppercase">
+              {category.name}
+            </span>
+          ))}
           {project.featured ? (
             <span className="rounded-full bg-[#B4A5A5] px-3 py-1 text-xs font-bold tracking-[0.14em] text-[#151515] uppercase">
               Featured
