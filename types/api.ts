@@ -17,12 +17,26 @@ export interface ProjectSkillDto {
     featured: boolean;
 }
 
+export interface ProjectImageDto {
+    id: number;
+    image_url: string;
+    image_key: string | null;
+    is_thumbnail: boolean;
+    order_index: number;
+}
+
 export interface ProjectDto {
     id: number;
     title: string;
     description: string;
+    summary_description: string;
+    full_description: string;
     image_url: string | null;
+    thumbnail_image: ProjectImageDto | null;
+    images: ProjectImageDto[];
     link: string;
+    github_url: string;
+    live_url: string | null;
     categories: CategoryDto[];
     featured: boolean;
     order_index: number | null;

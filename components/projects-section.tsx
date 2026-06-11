@@ -23,6 +23,7 @@ export function ProjectsSection({ projects }: ProjectsSectionProps) {
   const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [showAllProjects, setShowAllProjects] = useState(false);
+  const [openProjectId, setOpenProjectId] = useState<number | null>(null);
 
   const skillOptions = useMemo(
     () => uniqueOptions(projects.flatMap((project) => project.skills.map((skill) => ({ id: skill.id, name: skill.name })))),
@@ -53,6 +54,11 @@ export function ProjectsSection({ projects }: ProjectsSectionProps) {
     setSelectedSkillIds([]);
     setSelectedCategoryIds([]);
     setShowAllProjects(false);
+    setOpenProjectId(null);
+  }
+
+  function toggleProject(projectId: number) {
+    setOpenProjectId((currentProjectId) => currentProjectId === projectId ? null : projectId);
   }
 
   return (
@@ -87,7 +93,7 @@ export function ProjectsSection({ projects }: ProjectsSectionProps) {
               <>
                 <div className="grid gap-7">
                   {visibleProjects.map((project) => (
-                    <ProjectCard key={project.id} project={project} />
+                    <ProjectCard key={project.id} project={project} isOpen={openProjectId === project.id} onToggleOpen={() => toggleProject(project.id)} />
                   ))}
                 </div>
                 {canToggleMore ? (
@@ -95,7 +101,7 @@ export function ProjectsSection({ projects }: ProjectsSectionProps) {
                     <button
                       type="button"
                       className="rounded-full border border-[#B4A5A5]/30 px-5 py-2.5 text-sm font-bold text-white transition hover:border-[#B4A5A5]/70 hover:bg-[#301B3F]"
-                      onClick={() => setShowAllProjects((isShowingAll) => !isShowingAll)}
+                      onClick={() => { setOpenProjectId(null); setShowAllProjects((isShowingAll) => !isShowingAll); }}
                     >
                       {showAllProjects ? "Less projects" : "More projects"}
                     </button>

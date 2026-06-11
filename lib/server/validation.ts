@@ -1,17 +1,23 @@
-import type { Project, Skill } from '@/types/db';
+import type { Project, ProjectImage, Skill } from '@/types/db';
 import { HttpError } from './http';
 
 export type ProjectCreateInput = Omit<Project, 'id' | 'created_at'>;
 export type ProjectUpdateInput = Partial<Omit<Project, 'id' | 'created_at'>>;
+export type ProjectImageInput = Pick<ProjectImage, 'image_url' | 'image_key' | 'is_thumbnail' | 'order_index'>;
 export type SkillCreateInput = Omit<Skill, 'id' | 'created_at'>;
 export type SkillUpdateInput = Partial<Omit<Skill, 'id' | 'created_at'>>;
 
 const allowedProjectFields = new Set([
     'title',
     'description',
+    'summary_description',
+    'full_description',
     'image_url',
     'image_key',
+    'images',
     'link',
+    'github_url',
+    'live_url',
     'featured',
     'order_index',
     'category_ids',
@@ -102,6 +108,60 @@ function validateUrl(value: string, key: string): void {
     }
 }
 
+function optionalUrl(body: Record<string, unknown>, key: string): string | null | undefined {
+    const value = optionalNullableStringField(body, key);
+    if (value !== undefined && value !== null) {
+        validateUrl(value, key);
+    }
+    return value;
+}
+
+export function parseProjectImages(value: unknown): ProjectImageInput[] | null {
+    if (value === undefined) {
+        return null;
+    }
+
+    if (!Array.isArray(value)) {
+        throw new HttpError(400, 'Invalid images');
+    }
+
+    let thumbnailCount = 0;
+    const images = value.map((rawImage, index) => {
+        if (typeof rawImage !== 'object' || rawImage === null || Array.isArray(rawImage)) {
+            throw new HttpError(400, 'Invalid images');
+        }
+
+        const image = rawImage as Record<string, unknown>;
+        const imageUrl = stringField(image, 'image_url');
+        validateUrl(imageUrl, 'image_url');
+
+        const imageKey = optionalNullableStringField(image, 'image_key') ?? null;
+        const isThumbnail = 'is_thumbnail' in image ? booleanField(image, 'is_thumbnail') : index === 0;
+        const orderIndex = optionalNullableIntegerField(image, 'order_index') ?? index;
+
+        if (isThumbnail) {
+            thumbnailCount += 1;
+        }
+
+        return {
+            image_url: imageUrl,
+            image_key: imageKey,
+            is_thumbnail: isThumbnail,
+            order_index: orderIndex,
+        };
+    });
+
+    if (thumbnailCount > 1) {
+        throw new HttpError(400, 'Only one project image can be the thumbnail');
+    }
+
+    if (images.length > 0 && thumbnailCount === 0) {
+        images[0] = { ...images[0], is_thumbnail: true };
+    }
+
+    return images;
+}
+
 export function idFromBody(body: Record<string, unknown>, label: string): number {
     const id = body.id;
 
@@ -137,22 +197,25 @@ export function parseCategoryName(body: Record<string, unknown>): string {
 export function parseCreateProject(body: Record<string, unknown>): ProjectCreateInput {
     validateNoUnknownFields(body, allowedProjectFields);
 
-    const imageUrl = optionalNullableStringField(body, 'image_url') ?? null;
+    const imageUrl = optionalUrl(body, 'image_url') ?? null;
     const imageKey = optionalNullableStringField(body, 'image_key') ?? null;
-    const link = stringField(body, 'link');
+    const link = stringField(body, 'github_url' in body ? 'github_url' : 'link');
+    const liveUrl = optionalUrl(body, 'live_url') ?? null;
+    const description = stringField(body, 'description');
+    const summaryDescription = 'summary_description' in body ? stringField(body, 'summary_description') : description;
+    const fullDescription = 'full_description' in body ? stringField(body, 'full_description') : description;
 
     validateUrl(link, 'link');
 
-    if (imageUrl !== null) {
-        validateUrl(imageUrl, 'image_url');
-    }
-
     return {
         title: stringField(body, 'title'),
-        description: stringField(body, 'description'),
+        description,
+        summary_description: summaryDescription,
+        full_description: fullDescription,
         image_url: imageUrl,
         image_key: imageKey,
         link,
+        live_url: liveUrl,
         category: '',
         featured: booleanField(body, 'featured'),
         order_index: optionalNullableIntegerField(body, 'order_index') ?? null,
@@ -164,21 +227,24 @@ export function parseUpdateProject(body: Record<string, unknown>): ProjectUpdate
 
     const update: ProjectUpdateInput = {};
 
-    for (const key of ['title', 'description', 'link'] as const) {
+    for (const key of ['title', 'description', 'summary_description', 'full_description'] as const) {
         if (key in body) {
             update[key] = stringField(body, key);
         }
     }
 
-    if (update.link) {
+    if ('link' in body || 'github_url' in body) {
+        update.link = stringField(body, 'github_url' in body ? 'github_url' : 'link');
         validateUrl(update.link, 'link');
     }
 
-    const imageUrl = optionalNullableStringField(body, 'image_url');
+    const liveUrl = optionalUrl(body, 'live_url');
+    if (liveUrl !== undefined) {
+        update.live_url = liveUrl;
+    }
+
+    const imageUrl = optionalUrl(body, 'image_url');
     if (imageUrl !== undefined) {
-        if (imageUrl !== null) {
-            validateUrl(imageUrl, 'image_url');
-        }
         update.image_url = imageUrl;
     }
 

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { assertAdminMutation } from '@/lib/server/admin';
 import { HttpError } from '@/lib/server/http';
-import { createProject, deleteProject, getProjectById, updateProject } from '@/lib/server/projects';
+import { createProject, deleteProject, getProjectById, listProjectImages, updateProject } from '@/lib/server/projects';
 import { deleteManagedR2Object } from '@/lib/server/r2';
 import { DELETE, PATCH, POST } from './route';
 
@@ -24,6 +24,7 @@ vi.mock('@/lib/server/projects', async () => {
         updateProjectWithSkills: vi.fn(),
         deleteProject: vi.fn(),
         getProjectById: vi.fn(),
+        listProjectImages: vi.fn(),
         replaceProjectSkills: vi.fn(),
     };
 });
@@ -62,6 +63,7 @@ describe('Admin projects API route', () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
         (getCloudflareContext as Mock).mockReturnValue({ env });
         (assertAdminMutation as Mock).mockResolvedValue(undefined);
+        (listProjectImages as Mock).mockResolvedValue([]);
     });
 
     test('rejects unauthorized writes before creating a project', async () => {
@@ -103,7 +105,7 @@ describe('Admin projects API route', () => {
         expect(createProject).toHaveBeenCalledWith(mockDb, expect.objectContaining({
             image_key: 'projects/image.webp',
             image_url: 'https://cdn.example.com/projects/image.webp',
-        }), [1]);
+        }), [1], null);
     });
 
     test('deletes the owned R2 object before deleting the project row', async () => {

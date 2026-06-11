@@ -5,19 +5,25 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AdminProjectDto, AdminUserDto, CategoryDto, SkillDto } from '@/types/api';
 
 type ApiErrorBody = { error?: string; message?: string };
-type ImageMode = 'unchanged' | 'upload' | 'external' | 'clear';
+type ProjectFormImage = {
+    image_url: string;
+    image_key: string | null;
+    is_thumbnail: boolean;
+    order_index: number;
+};
 
 type ProjectForm = {
     id: number | null;
     title: string;
-    description: string;
+    summaryDescription: string;
+    fullDescription: string;
     selectedCategoryIds: number[];
     link: string;
+    liveUrl: string;
     featured: boolean;
     selectedSkillIds: number[];
-    imageMode: ImageMode;
-    imageUrl: string;
-    imageKey: string | null;
+    images: ProjectFormImage[];
+    externalImageUrl: string;
 };
 
 type SkillForm = {
@@ -41,14 +47,15 @@ type UploadState = {
 const emptyProjectForm: ProjectForm = {
     id: null,
     title: '',
-    description: '',
+    summaryDescription: '',
+    fullDescription: '',
     selectedCategoryIds: [],
     link: '',
+    liveUrl: '',
     featured: false,
     selectedSkillIds: [],
-    imageMode: 'external',
-    imageUrl: '',
-    imageKey: null,
+    images: [],
+    externalImageUrl: '',
 };
 
 const emptySkillForm: SkillForm = {
@@ -80,14 +87,20 @@ function projectToForm(project: AdminProjectDto): ProjectForm {
     return {
         id: project.id,
         title: project.title,
-        description: project.description,
+        summaryDescription: project.summary_description,
+        fullDescription: project.full_description,
         selectedCategoryIds: project.categories.map((category) => category.id),
-        link: project.link,
+        link: project.github_url || project.link,
+        liveUrl: project.live_url ?? '',
         featured: project.featured,
         selectedSkillIds: project.skills.map((skill) => skill.id),
-        imageMode: 'unchanged',
-        imageUrl: project.image_url ?? '',
-        imageKey: project.image_key,
+        images: project.images.map((image, index) => ({
+            image_url: image.image_url,
+            image_key: image.image_key,
+            is_thumbnail: image.is_thumbnail,
+            order_index: index,
+        })),
+        externalImageUrl: '',
     };
 }
 
@@ -117,7 +130,7 @@ function sameOrder(left: number[], right: number[]): boolean {
     return left.length === right.length && left.every((id, index) => id === right[index]);
 }
 
-function moveId(ids: number[], fromIndex: number, toIndex: number): number[] {
+function moveId<T>(ids: T[], fromIndex: number, toIndex: number): T[] {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= ids.length || toIndex >= ids.length) {
         return ids;
     }
@@ -153,16 +166,20 @@ async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
     return response.json() as Promise<T>;
 }
 
-function selectedProjectImage(projects: AdminProjectDto[], form: ProjectForm): string | null {
-    if (form.imageMode === 'clear') {
-        return null;
+function normalizedProjectImages(images: ProjectFormImage[]): ProjectFormImage[] {
+    const sortedImages = images.map((image, index) => ({ ...image, order_index: index }));
+    const thumbnailIndex = sortedImages.findIndex((image) => image.is_thumbnail);
+
+    if (sortedImages.length === 0 || thumbnailIndex !== -1) {
+        return sortedImages;
     }
 
-    if (form.imageMode === 'external' || form.imageMode === 'upload') {
-        return form.imageUrl.trim() || null;
-    }
+    return sortedImages.map((image, index) => ({ ...image, is_thumbnail: index === 0 }));
+}
 
-    return projects.find((project) => project.id === form.id)?.image_url ?? null;
+function selectedProjectImage(_projects: AdminProjectDto[], form: ProjectForm): string | null {
+    const images = normalizedProjectImages(form.images);
+    return images.find((image) => image.is_thumbnail)?.image_url ?? images[0]?.image_url ?? null;
 }
 
 export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
@@ -245,14 +262,13 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
         const errors: Record<string, string> = {};
 
         if (!projectForm.title.trim()) errors.title = 'Title is required';
-        if (!projectForm.description.trim()) errors.description = 'Description is required';
+        if (!projectForm.summaryDescription.trim()) errors.summaryDescription = 'Summary description is required';
+        if (!projectForm.fullDescription.trim()) errors.fullDescription = 'Full description is required';
         if (projectForm.selectedCategoryIds.length === 0) errors.categories = 'At least one category is required';
-        if (!isValidHttpUrl(projectForm.link.trim())) errors.link = 'Use a valid http or https URL';
-        if (projectForm.imageMode === 'external' && projectForm.imageUrl.trim() && !isValidHttpUrl(projectForm.imageUrl.trim())) {
+        if (!isValidHttpUrl(projectForm.link.trim())) errors.link = 'Use a valid http or https GitHub URL';
+        if (projectForm.liveUrl.trim() && !isValidHttpUrl(projectForm.liveUrl.trim())) errors.liveUrl = 'Use a valid http or https live URL';
+        if (projectForm.externalImageUrl.trim() && !isValidHttpUrl(projectForm.externalImageUrl.trim())) {
             errors.imageUrl = 'Use a valid http or https image URL';
-        }
-        if (projectForm.imageMode === 'upload' && !projectForm.imageKey) {
-            errors.imageUrl = 'Upload an image before saving';
         }
 
         return errors;
@@ -343,12 +359,18 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                 body: JSON.stringify({ key: signed.key }),
             });
 
-            setProjectForm((current) => ({
-                ...current,
-                imageMode: 'upload',
-                imageKey: finalized.key,
-                imageUrl: finalized.publicUrl,
-            }));
+            setProjectForm((current) => {
+                const nextImages = normalizedProjectImages([
+                    ...current.images,
+                    {
+                        image_url: finalized.publicUrl,
+                        image_key: finalized.key,
+                        is_thumbnail: current.images.length === 0,
+                        order_index: current.images.length,
+                    },
+                ]);
+                return { ...current, images: nextImages };
+            });
             setUploadState({ status: 'complete', message: 'Upload ready to save', progress: 100 });
         } catch (uploadError) {
             setUploadState({
@@ -359,6 +381,37 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
         }
     }
 
+
+    function addExternalImage() {
+        const imageUrl = projectForm.externalImageUrl.trim();
+        if (!imageUrl || !isValidHttpUrl(imageUrl)) {
+            setProjectErrors((current) => ({ ...current, imageUrl: 'Use a valid http or https image URL' }));
+            return;
+        }
+
+        setProjectForm((current) => ({
+            ...current,
+            images: normalizedProjectImages([
+                ...current.images,
+                { image_url: imageUrl, image_key: null, is_thumbnail: current.images.length === 0, order_index: current.images.length },
+            ]),
+            externalImageUrl: '',
+        }));
+        setProjectErrors((current) => ({ ...current, imageUrl: '' }));
+    }
+
+    function removeProjectImage(index: number) {
+        setProjectForm((current) => ({ ...current, images: normalizedProjectImages(current.images.filter((_, currentIndex) => currentIndex !== index)) }));
+    }
+
+    function markProjectThumbnail(index: number) {
+        setProjectForm((current) => ({ ...current, images: current.images.map((image, currentIndex) => ({ ...image, is_thumbnail: currentIndex === index })) }));
+    }
+
+    function moveProjectImage(index: number, direction: -1 | 1) {
+        setProjectForm((current) => ({ ...current, images: normalizedProjectImages(moveId(current.images, index, index + direction)) }));
+    }
+
     async function saveProject() {
         const validation = validateProject();
         setProjectErrors(validation);
@@ -367,28 +420,19 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
         const isEditing = projectForm.id !== null;
         const payload: Record<string, unknown> = {
             title: projectForm.title.trim(),
-            description: projectForm.description.trim(),
+            description: projectForm.summaryDescription.trim(),
+            summary_description: projectForm.summaryDescription.trim(),
+            full_description: projectForm.fullDescription.trim(),
             category_ids: projectForm.selectedCategoryIds,
             link: projectForm.link.trim(),
+            live_url: projectForm.liveUrl.trim() || null,
             featured: projectForm.featured,
             skill_ids: projectForm.selectedSkillIds,
+            images: normalizedProjectImages(projectForm.images),
         };
 
         if (isEditing) {
             payload.id = projectForm.id;
-        }
-
-        if (!isEditing || projectForm.imageMode !== 'unchanged') {
-            if (projectForm.imageMode === 'upload') {
-                payload.image_key = projectForm.imageKey;
-                payload.image_url = projectForm.imageUrl.trim();
-            } else if (projectForm.imageMode === 'external') {
-                payload.image_key = null;
-                payload.image_url = projectForm.imageUrl.trim() || null;
-            } else if (projectForm.imageMode === 'clear') {
-                payload.image_key = null;
-                payload.image_url = null;
-            }
         }
 
         setSavingProject(true);
@@ -626,7 +670,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                                         <td className="px-4 py-3 text-[#d8d0d0]">{categoryNames(project.categories)}</td>
                                         <td className="px-4 py-3 text-[#d8d0d0]">{project.featured ? project.order_index : 'Unfeatured'}</td>
                                         <td className="px-4 py-3 text-[#d8d0d0]">{project.skills.map((skill) => skill.name).join(', ') || 'None'}</td>
-                                        <td className="px-4 py-3 text-[#d8d0d0]">{project.image_key ? 'Managed' : project.image_url ? 'External' : 'None'}</td>
+                                        <td className="px-4 py-3 text-[#d8d0d0]">{project.images.length > 0 ? `${project.images.length} image${project.images.length === 1 ? '' : 's'}` : 'None'}</td>
                                         <td className="px-4 py-3">
                                             <div className="flex gap-2">
                                                 <button className={buttonClass} type="button" onClick={() => { setProjectForm(projectToForm(project)); setProjectErrors({}); focusProjectEditor(); }}>Edit</button>
@@ -647,8 +691,10 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                     <div className="mt-4 grid gap-3">
                         <label className="grid gap-1 text-sm">Title<input className={inputClass} value={projectForm.title} onChange={(event) => setProjectForm({ ...projectForm, title: event.target.value })} /></label>
                         {projectErrors.title ? <p className="text-sm text-red-200">{projectErrors.title}</p> : null}
-                        <label className="grid gap-1 text-sm">Description<textarea className={`${inputClass} min-h-24`} value={projectForm.description} onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })} /></label>
-                        {projectErrors.description ? <p className="text-sm text-red-200">{projectErrors.description}</p> : null}
+                        <label className="grid gap-1 text-sm">Summary description<textarea className={`${inputClass} min-h-20`} value={projectForm.summaryDescription} onChange={(event) => setProjectForm({ ...projectForm, summaryDescription: event.target.value })} /></label>
+                        {projectErrors.summaryDescription ? <p className="text-sm text-red-200">{projectErrors.summaryDescription}</p> : null}
+                        <label className="grid gap-1 text-sm">Full description<textarea className={`${inputClass} min-h-32`} value={projectForm.fullDescription} onChange={(event) => setProjectForm({ ...projectForm, fullDescription: event.target.value })} /></label>
+                        {projectErrors.fullDescription ? <p className="text-sm text-red-200">{projectErrors.fullDescription}</p> : null}
                         <div className="grid gap-3 md:grid-cols-2">
                             <fieldset className="grid gap-2 text-sm">
                                 <legend>Categories</legend>
@@ -661,10 +707,14 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                                     ))}
                                 </div>
                             </fieldset>
-                            <label className="grid gap-1 text-sm">Project link<input className={inputClass} value={projectForm.link} onChange={(event) => setProjectForm({ ...projectForm, link: event.target.value })} /></label>
+                            <div className="grid gap-3">
+                                <label className="grid gap-1 text-sm">GitHub URL<input className={inputClass} value={projectForm.link} onChange={(event) => setProjectForm({ ...projectForm, link: event.target.value })} /></label>
+                                <label className="grid gap-1 text-sm">Live URL<input className={inputClass} value={projectForm.liveUrl} onChange={(event) => setProjectForm({ ...projectForm, liveUrl: event.target.value })} /></label>
+                            </div>
                         </div>
                         {projectErrors.categories ? <p className="text-sm text-red-200">{projectErrors.categories}</p> : null}
                         {projectErrors.link ? <p className="text-sm text-red-200">{projectErrors.link}</p> : null}
+                        {projectErrors.liveUrl ? <p className="text-sm text-red-200">{projectErrors.liveUrl}</p> : null}
                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={projectForm.featured} onChange={(event) => setProjectForm({ ...projectForm, featured: event.target.checked })} /> Featured</label>
 
                         <fieldset className="grid gap-2 border-t border-[#B4A5A5]/15 pt-3">
@@ -684,22 +734,36 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                         </fieldset>
 
                         <fieldset className="grid gap-3 border-t border-[#B4A5A5]/15 pt-3">
-                            <legend className="text-sm font-semibold">Image</legend>
-                            <div className="flex flex-wrap gap-2">
-                                {projectForm.id ? <button className={buttonClass} type="button" onClick={() => setProjectForm({ ...projectForm, imageMode: 'unchanged' })}>Keep</button> : null}
-                                <button className={buttonClass} type="button" onClick={() => setProjectForm({ ...projectForm, imageMode: 'upload' })}>Upload</button>
-                                <button className={buttonClass} type="button" onClick={() => setProjectForm({ ...projectForm, imageMode: 'external', imageKey: null })}>External URL</button>
-                                <button className={buttonClass} type="button" onClick={() => setProjectForm({ ...projectForm, imageMode: 'clear', imageUrl: '', imageKey: null })}>Clear</button>
+                            <legend className="text-sm font-semibold">Images</legend>
+                            <input className={inputClass} type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.currentTarget.value = ''; }} />
+                            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                                <label className="grid gap-1 text-sm">External image URL<input className={inputClass} value={projectForm.externalImageUrl} onChange={(event) => setProjectForm({ ...projectForm, externalImageUrl: event.target.value })} /></label>
+                                <button className={`${buttonClass} self-end`} type="button" onClick={addExternalImage}>Add image</button>
                             </div>
-                            <p className="text-sm text-[#B4A5A5]">Mode: {projectForm.imageMode}</p>
-                            {projectForm.imageMode === 'upload' ? <input className={inputClass} type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); }} /> : null}
-                            {projectForm.imageMode === 'external' ? <label className="grid gap-1 text-sm">Image URL<input className={inputClass} value={projectForm.imageUrl} onChange={(event) => setProjectForm({ ...projectForm, imageUrl: event.target.value, imageKey: null })} /></label> : null}
                             {uploadState.message ? <p className={uploadState.status === 'error' ? 'text-sm text-red-200' : 'text-sm text-[#B4A5A5]'}>{uploadState.message} {uploadState.progress ? `${uploadState.progress}%` : ''}</p> : null}
                             {projectErrors.imageUrl ? <p className="text-sm text-red-200">{projectErrors.imageUrl}</p> : null}
                             {projectImage ? (
                                 // eslint-disable-next-line @next/next/no-img-element -- Admin image previews can be external or runtime R2 assets.
-                                <img className="h-32 w-full rounded-md border border-[#B4A5A5]/15 object-cover" src={projectImage} alt="Project preview" />
+                                <img className="h-32 w-full rounded-md border border-[#B4A5A5]/15 object-cover" src={projectImage} alt="Project thumbnail preview" />
                             ) : null}
+                            <div className="grid gap-2">
+                                {projectForm.images.length === 0 ? <p className="text-sm text-[#B4A5A5]">No project images. The public card will use the no-image placeholder.</p> : normalizedProjectImages(projectForm.images).map((image, index) => (
+                                    <div key={`${image.image_url}-${index}`} className="grid gap-3 rounded-md border border-[#B4A5A5]/15 bg-[#1f1f23] p-3 text-sm md:grid-cols-[5rem_1fr_auto] md:items-center">
+                                        {/* eslint-disable-next-line @next/next/no-img-element -- Admin image previews can be external or runtime R2 assets. */}
+                                        <img className="h-16 w-20 rounded-md object-cover" src={image.image_url} alt="" />
+                                        <div className="min-w-0">
+                                            <div className="truncate text-[#eee8e8]">{image.image_url}</div>
+                                            <div className="mt-1 text-[#B4A5A5]">{image.image_key ? 'Managed upload' : 'External URL'}{image.is_thumbnail ? ' · Thumbnail' : ''}</div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button className={buttonClass} type="button" disabled={index === 0} onClick={() => moveProjectImage(index, -1)}>Up</button>
+                                            <button className={buttonClass} type="button" disabled={index === projectForm.images.length - 1} onClick={() => moveProjectImage(index, 1)}>Down</button>
+                                            <button className={buttonClass} type="button" disabled={image.is_thumbnail} onClick={() => markProjectThumbnail(index)}>Thumbnail</button>
+                                            <button className={dangerButtonClass} type="button" onClick={() => removeProjectImage(index)}>Remove</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </fieldset>
 
                         <div className="flex flex-wrap gap-2 border-t border-[#B4A5A5]/15 pt-3">

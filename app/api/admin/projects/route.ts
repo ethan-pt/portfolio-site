@@ -6,6 +6,7 @@ import {
     getProjectById,
     InvalidProjectFeaturedOrderStateError,
     listAdminProjectDtos,
+    listProjectImages,
     NoFieldsToUpdateError,
     ProjectConflictError,
     ProjectNotFoundError,
@@ -20,7 +21,7 @@ import { assertAdminMutation } from '@/lib/server/admin';
 import { requireAdminUser } from '@/lib/server/auth';
 import { HttpError, errorResponse, mapUnknownError, readJsonObject } from '@/lib/server/http';
 import { deleteManagedR2Object, isManagedProjectImageKey, publicR2Url } from '@/lib/server/r2';
-import { categoryIdsFromBody, idFromBody, parseCreateProject, parseUpdateProject } from '@/lib/server/validation';
+import { categoryIdsFromBody, idFromBody, parseCreateProject, parseProjectImages, parseUpdateProject, type ProjectImageInput } from '@/lib/server/validation';
 
 function mapProjectError(error: unknown): Response | null {
     if (error instanceof MissingRequiredCategoryFieldsError || error instanceof CategoryNotFoundError) {
@@ -54,6 +55,34 @@ function applyManagedImageUrl<T extends { image_key?: string | null; image_url?:
     return data;
 }
 
+function applyManagedImageUrls(env: CloudflareEnv, images: ProjectImageInput[] | null): ProjectImageInput[] | null {
+    if (images === null) {
+        return null;
+    }
+
+    return images.map((image) => applyManagedImageUrl(env, image));
+}
+
+function managedKeys(values: Array<string | null | undefined>): Set<string> {
+    return new Set(values.filter(isManagedProjectImageKey));
+}
+
+async function deleteRemovedManagedImages(env: CloudflareEnv, previousKeys: Set<string>, nextImages: ProjectImageInput[] | null, nextLegacyKey: string | null | undefined, previousLegacyKey: string | null | undefined): Promise<void> {
+    if (nextImages === null) {
+        if (nextLegacyKey !== undefined && previousLegacyKey !== nextLegacyKey) {
+            await deleteManagedR2Object(env.BUCKET, previousLegacyKey);
+        }
+        return;
+    }
+
+    const nextKeys = managedKeys([
+        ...nextImages.map((image) => image.image_key),
+        nextLegacyKey,
+    ]);
+
+    await Promise.all([...previousKeys].filter((key) => !nextKeys.has(key)).map((key) => deleteManagedR2Object(env.BUCKET, key)));
+}
+
 function parseSkillIds(value: unknown): number[] | null {
     if (value === undefined) {
         return null;
@@ -74,12 +103,14 @@ export async function POST(request: Request): Promise<Response> {
         const body = await readJsonObject(request);
         const skillIds = parseSkillIds(body.skill_ids) ?? [];
         const categoryIds = categoryIdsFromBody(body, true) ?? [];
+        const images = applyManagedImageUrls(env, parseProjectImages(body.images));
         delete body.skill_ids;
         delete body.category_ids;
+        delete body.images;
         const projectData = applyManagedImageUrl(env, parseCreateProject(body));
         const newProject = skillIds.length === 0
-            ? await createProject(env.DB, projectData, categoryIds)
-            : await createProjectWithSkills(env.DB, projectData, categoryIds, skillIds);
+            ? await createProject(env.DB, projectData, categoryIds, images)
+            : await createProjectWithSkills(env.DB, projectData, categoryIds, skillIds, images);
 
         return Response.json(newProject, { status: 201 });
     } catch (error) {
@@ -113,18 +144,20 @@ export async function PATCH(request: Request): Promise<Response> {
             return errorResponse('Project not found', 404);
         }
 
+        const existingImages = await listProjectImages(env.DB, id);
+        const previousKeys = managedKeys([existingProject.image_key, ...existingImages.map((image) => image.image_key)]);
         const skillIds = parseSkillIds(body.skill_ids);
         const categoryIds = categoryIdsFromBody(body, false);
+        const images = applyManagedImageUrls(env, parseProjectImages(body.images));
         delete body.skill_ids;
         delete body.category_ids;
+        delete body.images;
         const projectData = applyManagedImageUrl(env, parseUpdateProject(body));
         const updatedProject = skillIds === null
-            ? await updateProject(env.DB, id, projectData, categoryIds)
-            : await updateProjectWithSkills(env.DB, id, projectData, categoryIds, skillIds);
+            ? await updateProject(env.DB, id, projectData, categoryIds, images)
+            : await updateProjectWithSkills(env.DB, id, projectData, categoryIds, skillIds, images);
 
-        if (projectData.image_key !== undefined && existingProject.image_key !== projectData.image_key) {
-            await deleteManagedR2Object(env.BUCKET, existingProject.image_key);
-        }
+        await deleteRemovedManagedImages(env, previousKeys, images, projectData.image_key, existingProject.image_key);
 
         return Response.json(updatedProject, { status: 200 });
     } catch (error) {
@@ -146,7 +179,8 @@ export async function DELETE(request: Request): Promise<Response> {
             return errorResponse('Project not found', 404);
         }
 
-        await deleteManagedR2Object(env.BUCKET, existingProject.image_key);
+        const existingImages = await listProjectImages(env.DB, id);
+        await Promise.all([...managedKeys([existingProject.image_key, ...existingImages.map((image) => image.image_key)])].map((key) => deleteManagedR2Object(env.BUCKET, key)));
         await deleteProject(env.DB, id);
 
         return Response.json({ message: 'Project deleted successfully' }, { status: 200 });

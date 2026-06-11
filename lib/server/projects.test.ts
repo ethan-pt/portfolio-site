@@ -49,9 +49,12 @@ describe('project data access', () => {
         id: 1,
         title: 'E-Commerce Dashboard',
         description: 'An e-commerce dashboard project',
+        summary_description: 'An e-commerce dashboard project',
+        full_description: 'An e-commerce dashboard project',
         image_url: 'https://example.com/image.png',
         image_key: 'projects/image.png',
         link: 'https://example.com',
+        live_url: null,
         category: 'Full-Stack',
         featured: true,
         order_index: 1,
@@ -61,9 +64,12 @@ describe('project data access', () => {
     const projectData = {
         title: 'New Portfolio',
         description: 'A new portfolio project',
+        summary_description: 'A new portfolio project',
+        full_description: 'A new portfolio project',
         image_url: 'https://example.com/image.png',
         image_key: 'projects/new.png',
         link: 'https://example.com',
+        live_url: null,
         category: '',
         featured: true,
         order_index: null,
@@ -85,6 +91,10 @@ describe('project data access', () => {
     test('builds public DTOs with project categories and nested skill categories', async () => {
         const projectsStatement = createMockStatement();
         projectsStatement.all.mockResolvedValue({ results: [existingProject] });
+        const projectImagesStatement = createMockStatement();
+        projectImagesStatement.all.mockResolvedValue({ results: [
+            { project_id: 1, id: 100, image_url: 'https://example.com/image.png', image_key: 'projects/image.png', is_thumbnail: 1, order_index: 0 },
+        ] });
         const projectCategoriesStatement = createMockStatement();
         projectCategoriesStatement.all.mockResolvedValue({ results: [
             { project_id: 1, id: 10, name: 'Back-End' },
@@ -102,6 +112,7 @@ describe('project data access', () => {
         ] });
         mock.prepare
             .mockReturnValueOnce(projectsStatement)
+            .mockReturnValueOnce(projectImagesStatement)
             .mockReturnValueOnce(projectCategoriesStatement)
             .mockReturnValueOnce(projectSkillsStatement)
             .mockReturnValueOnce(skillCategoriesStatement);
@@ -111,9 +122,15 @@ describe('project data access', () => {
         expect(projects).toEqual([{
             id: 1,
             title: existingProject.title,
-            description: existingProject.description,
+            description: existingProject.summary_description,
+            summary_description: existingProject.summary_description,
+            full_description: existingProject.full_description,
             image_url: existingProject.image_url,
+            thumbnail_image: { id: 100, image_url: existingProject.image_url, image_key: existingProject.image_key, is_thumbnail: true, order_index: 0 },
+            images: [{ id: 100, image_url: existingProject.image_url, image_key: existingProject.image_key, is_thumbnail: true, order_index: 0 }],
             link: existingProject.link,
+            github_url: existingProject.link,
+            live_url: null,
             categories: [{ id: 10, name: 'Back-End' }, { id: 11, name: 'Full-Stack' }],
             featured: true,
             order_index: 1,
@@ -134,7 +151,7 @@ describe('project data access', () => {
 
         const project = await createProjectWithSkills(mock.db, projectData, [10, 11], [7, 8]);
 
-        expect(mock.prepare).toHaveBeenCalledWith('INSERT INTO projects (id, title, description, image_url, image_key, link, category, featured, order_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        expect(mock.prepare).toHaveBeenCalledWith('INSERT INTO projects (id, title, description, summary_description, full_description, image_url, image_key, link, live_url, category, featured, order_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         expect(mock.prepare).toHaveBeenCalledWith('INSERT INTO project_categories (project_id, category_id) VALUES (?, ?)');
         expect(mock.prepare).toHaveBeenCalledWith('INSERT INTO project_skills (project_id, skill_id) VALUES (?, ?)');
         expect(mock.batch).toHaveBeenCalledTimes(1);
@@ -150,7 +167,7 @@ describe('project data access', () => {
         await createProject(mock.db, { ...projectData, title: 'Utility', description: 'A utility project', category: '', featured: false, order_index: 3 }, [12]);
 
         const insertStatement = mock.prepare.mock.results.find((result) => result.value.bind.mock.calls.some((call: unknown[]) => call.includes('Utility')))?.value;
-        expect(insertStatement.bind).toHaveBeenCalledWith(expect.any(Number), 'Utility', 'A utility project', projectData.image_url, projectData.image_key, projectData.link, 'Tools', false, null);
+        expect(insertStatement.bind).toHaveBeenCalledWith(expect.any(Number), 'Utility', 'A utility project', projectData.summary_description, projectData.full_description, projectData.image_url, projectData.image_key, projectData.link, null, 'Tools', false, null);
     });
 
     test('rejects missing required fields before writing', async () => {
