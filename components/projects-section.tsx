@@ -22,6 +22,7 @@ function includesAll(selectedIds: number[], availableIds: number[]): boolean {
 export function ProjectsSection({ projects }: ProjectsSectionProps) {
   const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [showAllProjects, setShowAllProjects] = useState(false);
 
   const skillOptions = useMemo(
     () => uniqueOptions(projects.flatMap((project) => project.skills.map((skill) => ({ id: skill.id, name: skill.name })))),
@@ -42,10 +43,16 @@ export function ProjectsSection({ projects }: ProjectsSectionProps) {
     [projects, selectedCategoryIds, selectedSkillIds]
   );
   const filtersActive = selectedSkillIds.length > 0 || selectedCategoryIds.length > 0;
+  const featuredProjects = filteredProjects.filter((project) => project.featured);
+  const hasFeaturedProjects = projects.some((project) => project.featured);
+  const hasNonFeaturedProjects = projects.some((project) => !project.featured);
+  const canToggleMore = !filtersActive && hasFeaturedProjects && hasNonFeaturedProjects;
+  const visibleProjects = filtersActive || showAllProjects || !hasFeaturedProjects ? filteredProjects : featuredProjects;
 
   function resetFilters() {
     setSelectedSkillIds([]);
     setSelectedCategoryIds([]);
+    setShowAllProjects(false);
   }
 
   return (
@@ -76,12 +83,25 @@ export function ProjectsSection({ projects }: ProjectsSectionProps) {
                 </button>
               ) : null}
             </div>
-            {filteredProjects.length > 0 ? (
-              <div className="grid gap-7">
-                {filteredProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
-                ))}
-              </div>
+            {visibleProjects.length > 0 ? (
+              <>
+                <div className="grid gap-7">
+                  {visibleProjects.map((project) => (
+                    <ProjectCard key={project.id} project={project} />
+                  ))}
+                </div>
+                {canToggleMore ? (
+                  <div className="mt-8 flex justify-center">
+                    <button
+                      type="button"
+                      className="rounded-full border border-[#B4A5A5]/30 px-5 py-2.5 text-sm font-bold text-white transition hover:border-[#B4A5A5]/70 hover:bg-[#301B3F]"
+                      onClick={() => setShowAllProjects((isShowingAll) => !isShowingAll)}
+                    >
+                      {showAllProjects ? "Less projects" : "More projects"}
+                    </button>
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="rounded-lg border border-[#B4A5A5]/15 bg-[#301B3F]/35 p-8 text-[#f2eeee]">
                 No projects match the selected filters.

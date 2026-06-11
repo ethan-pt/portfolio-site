@@ -51,9 +51,20 @@ function projectHeadings() {
 
 afterEach(() => cleanup());
 
-
 describe("ProjectsSection", () => {
-  test("requires every selected skill and project category", () => {
+  test("shows featured projects by default and toggles non-featured projects", () => {
+    render(<ProjectsSection projects={projects} />);
+
+    expect(projectHeadings()).toEqual(["Dashboard"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "More projects" }));
+    expect(projectHeadings()).toEqual(["Dashboard", "Worker API", "Full Stack Tool"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Less projects" }));
+    expect(projectHeadings()).toEqual(["Dashboard"]);
+  });
+
+  test("requires every selected skill and project category while including non-featured matches", () => {
     render(<ProjectsSection projects={projects} />);
 
     fireEvent.click(screen.getByLabelText("React"));
@@ -61,19 +72,29 @@ describe("ProjectsSection", () => {
     fireEvent.click(screen.getByLabelText("Backend"));
 
     expect(projectHeadings()).toEqual(["Full Stack Tool"]);
+    expect(screen.queryByRole("button", { name: "More projects" })).toBeNull();
     expect(screen.queryByRole("heading", { level: 3, name: "Dashboard" })).toBeNull();
     expect(screen.queryByRole("heading", { level: 3, name: "Worker API" })).toBeNull();
   });
 
-  test("resets project filters without changing the original project order", () => {
+  test("reset clears project filters and restores featured-only display", () => {
     render(<ProjectsSection projects={projects} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "More projects" }));
     fireEvent.click(screen.getByLabelText("D1"));
     expect(projectHeadings()).toEqual(["Worker API", "Full Stack Tool"]);
 
     fireEvent.click(screen.getByRole("button", { name: "Reset project filters" }));
 
-    expect(projectHeadings()).toEqual(["Dashboard", "Worker API", "Full Stack Tool"]);
+    expect(projectHeadings()).toEqual(["Dashboard"]);
     expect(screen.queryByRole("button", { name: "Reset project filters" })).toBeNull();
+    expect(screen.getByRole("button", { name: "More projects" })).toBeTruthy();
+  });
+
+  test("shows all projects by default when none are featured", () => {
+    render(<ProjectsSection projects={projects.map((project) => ({ ...project, featured: false, order_index: null }))} />);
+
+    expect(projectHeadings()).toEqual(["Dashboard", "Worker API", "Full Stack Tool"]);
+    expect(screen.queryByRole("button", { name: "More projects" })).toBeNull();
   });
 });

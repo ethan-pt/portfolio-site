@@ -21,6 +21,7 @@ function includesAll(selectedIds: number[], availableIds: number[]): boolean {
 
 export function SkillsSection({ skills, projectReferenceCounts }: SkillsSectionProps) {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [showAllSkills, setShowAllSkills] = useState(false);
   const categoryOptions = useMemo(
     () => uniqueOptions(skills.flatMap((skill) => skill.categories)),
     [skills]
@@ -45,6 +46,16 @@ export function SkillsSection({ skills, projectReferenceCounts }: SkillsSectionP
     [selectedCategoryIds, sortedSkills]
   );
   const filtersActive = selectedCategoryIds.length > 0;
+  const featuredSkills = filteredSkills.filter((skill) => skill.featured);
+  const hasFeaturedSkills = skills.some((skill) => skill.featured);
+  const hasNonFeaturedSkills = skills.some((skill) => !skill.featured);
+  const canToggleMore = !filtersActive && hasFeaturedSkills && hasNonFeaturedSkills;
+  const visibleSkills = filtersActive || showAllSkills || !hasFeaturedSkills ? filteredSkills : featuredSkills;
+
+  function resetFilters() {
+    setSelectedCategoryIds([]);
+    setShowAllSkills(false);
+  }
 
   return (
     <section id="skills" className="scroll-mt-24 border-y border-[#B4A5A5]/10 bg-[#301B3F]/25 px-5 py-20 md:px-8">
@@ -64,46 +75,59 @@ export function SkillsSection({ skills, projectReferenceCounts }: SkillsSectionP
                 <button
                   type="button"
                   className="min-h-11 rounded-md border border-[#B4A5A5]/25 px-4 py-2.5 text-sm font-semibold text-[#f6f2f2] transition hover:border-[#B4A5A5]/65 hover:bg-[#B4A5A5]/10"
-                  onClick={() => setSelectedCategoryIds([])}
+                  onClick={resetFilters}
                 >
                   Reset skill filters
                 </button>
               ) : null}
             </div>
-            {filteredSkills.length > 0 ? (
-              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                {filteredSkills.map((skill) => {
-                  const referenceCount = projectReferenceCounts[skill.id] ?? 0;
-                  const projectLabel = referenceCount === 1 ? "project" : "projects";
+            {visibleSkills.length > 0 ? (
+              <>
+                <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                  {visibleSkills.map((skill) => {
+                    const referenceCount = projectReferenceCounts[skill.id] ?? 0;
+                    const projectLabel = referenceCount === 1 ? "project" : "projects";
 
-                  return (
-                    <section key={skill.id} className="rounded-lg border border-[#B4A5A5]/15 bg-[#151515]/80 p-6">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-semibold text-white" style={{ cursor: "default" }}>
-                          {skill.name}
-                        </h3>
-                        {skill.featured ? (
-                          <span className="rounded-full bg-[#B4A5A5] px-2.5 py-1 text-xs font-bold text-[#151515]">
-                            Featured
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-3 text-sm font-semibold text-[#B4A5A5]">
-                        {referenceCount} {projectLabel}
-                      </p>
-                      {skill.categories.length > 0 ? (
-                        <div className="mt-5 flex flex-wrap gap-2">
-                          {skill.categories.map((category) => (
-                            <span key={category.id} className="rounded-full border border-[#B4A5A5]/20 px-3 py-1.5 text-sm font-semibold text-[#f6f2f2]">
-                              {category.name}
+                    return (
+                      <section key={skill.id} className="rounded-lg border border-[#B4A5A5]/15 bg-[#151515]/80 p-6">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-lg font-semibold text-white" style={{ cursor: "default" }}>
+                            {skill.name}
+                          </h3>
+                          {skill.featured ? (
+                            <span className="rounded-full bg-[#B4A5A5] px-2.5 py-1 text-xs font-bold text-[#151515]">
+                              Featured
                             </span>
-                          ))}
+                          ) : null}
                         </div>
-                      ) : null}
-                    </section>
-                  );
-                })}
-              </div>
+                        <p className="mt-3 text-sm font-semibold text-[#B4A5A5]">
+                          {referenceCount} {projectLabel}
+                        </p>
+                        {skill.categories.length > 0 ? (
+                          <div className="mt-5 flex flex-wrap gap-2">
+                            {skill.categories.map((category) => (
+                              <span key={category.id} className="rounded-full border border-[#B4A5A5]/20 px-3 py-1.5 text-sm font-semibold text-[#f6f2f2]">
+                                {category.name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </section>
+                    );
+                  })}
+                </div>
+                {canToggleMore ? (
+                  <div className="mt-8 flex justify-center">
+                    <button
+                      type="button"
+                      className="rounded-full border border-[#B4A5A5]/30 px-5 py-2.5 text-sm font-bold text-white transition hover:border-[#B4A5A5]/70 hover:bg-[#301B3F]"
+                      onClick={() => setShowAllSkills((isShowingAll) => !isShowingAll)}
+                    >
+                      {showAllSkills ? "Less skills" : "More skills"}
+                    </button>
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="rounded-lg border border-[#B4A5A5]/15 bg-[#151515]/80 p-8 text-[#f2eeee]">
                 No skills match the selected filters.
