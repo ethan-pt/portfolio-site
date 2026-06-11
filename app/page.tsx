@@ -26,10 +26,21 @@ async function getHomeData(env: CloudflareEnv): Promise<{ projects: ProjectDto[]
   }
 }
 
+function projectReferenceCounts(projects: ProjectDto[]): Record<number, number> {
+  return projects.reduce<Record<number, number>>((counts, project) => {
+    for (const skill of project.skills) {
+      counts[skill.id] = (counts[skill.id] ?? 0) + 1;
+    }
+
+    return counts;
+  }, {});
+}
+
 export default async function Home() {
   const { env } = await getCloudflareContext({ async: true });
   const contact = getPortfolioContact();
   const { projects, skills } = await getHomeData(env);
+  const skillReferenceCounts = projectReferenceCounts(projects);
 
   return (
     <main className="min-h-screen bg-[#151515] text-[#f8f5f5]">
@@ -37,7 +48,7 @@ export default async function Home() {
       <Hero contact={contact} />
       <About />
       <ProjectsSection projects={projects} />
-      <SkillsSection skills={skills} />
+      <SkillsSection skills={skills} projectReferenceCounts={skillReferenceCounts} />
       <ContactSection contact={contact} />
     </main>
   );
