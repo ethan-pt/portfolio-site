@@ -36,6 +36,13 @@ export class ProjectConflictError extends Error {
     }
 }
 
+export class InvalidProjectReorderError extends Error {
+    constructor(message = 'Invalid project reorder request') {
+        super(message);
+        this.name = 'InvalidProjectReorderError';
+    }
+}
+
 interface ProjectSkillRow extends Project {
     skill_id: number | null;
     skill_name: string | null;
@@ -108,6 +115,10 @@ function projectSkillStatements(db: D1Database, projectId: number, skillIds: num
 }
 
 async function batchProjectWrite(db: D1Database, statements: D1PreparedStatement[]): Promise<void> {
+    if (statements.length === 0) {
+        return;
+    }
+
     try {
         await db.batch(statements);
     } catch (error) {
@@ -116,6 +127,91 @@ async function batchProjectWrite(db: D1Database, statements: D1PreparedStatement
         }
         throw error;
     }
+}
+
+async function nextFeaturedOrderIndex(db: D1Database): Promise<number> {
+    const row = await db.prepare(
+        'SELECT COALESCE(MAX(order_index), 0) AS max_order_index FROM projects WHERE featured = 1'
+    ).first<{ max_order_index: number | null }>();
+
+    return (row?.max_order_index ?? 0) + 1;
+}
+
+async function featuredProjectIds(db: D1Database): Promise<number[]> {
+    const { results } = await db.prepare(
+        'SELECT id FROM projects WHERE featured = 1 ORDER BY order_index ASC, created_at DESC'
+    ).all<{ id: number }>();
+
+    return results.map((project) => project.id);
+}
+
+function reorderStatements(db: D1Database, projectIds: number[]): D1PreparedStatement[] {
+    return [
+        ...projectIds.map((projectId, index) => (
+            db.prepare('UPDATE projects SET order_index = ? WHERE id = ?').bind(-(index + 1), projectId)
+        )),
+        ...projectIds.map((projectId, index) => (
+            db.prepare('UPDATE projects SET order_index = ? WHERE id = ?').bind(index + 1, projectId)
+        )),
+    ];
+}
+
+async function compactFeaturedProjectOrder(db: D1Database): Promise<void> {
+    const currentFeaturedIds = await featuredProjectIds(db);
+
+    if (currentFeaturedIds.length === 0) {
+        return;
+    }
+
+    await batchProjectWrite(db, reorderStatements(db, currentFeaturedIds));
+}
+
+function assertProjectReorderIds(projectIds: number[]): void {
+    if (!Array.isArray(projectIds) || projectIds.some((id) => !Number.isInteger(id) || id <= 0)) {
+        throw new InvalidProjectReorderError('Invalid project IDs');
+    }
+
+    if (new Set(projectIds).size !== projectIds.length) {
+        throw new InvalidProjectReorderError('Duplicate project IDs');
+    }
+}
+
+function assertSameProjectIds(submittedIds: number[], currentIds: number[]): void {
+    if (submittedIds.length !== currentIds.length) {
+        throw new ProjectConflictError('Featured project order is stale. Refresh and try again.');
+    }
+
+    const currentIdSet = new Set(currentIds);
+    if (submittedIds.some((id) => !currentIdSet.has(id))) {
+        throw new ProjectConflictError('Featured project order is stale. Refresh and try again.');
+    }
+}
+
+async function prepareProjectCreate(db: D1Database, projectData: Omit<Project, 'id' | 'created_at'>): Promise<Omit<Project, 'id' | 'created_at'>> {
+    const normalizedProject = {
+        ...projectData,
+        order_index: projectData.featured ? await nextFeaturedOrderIndex(db) : null,
+    };
+
+    validateProjectFeaturedOrderState(normalizedProject.featured, normalizedProject.order_index);
+    return normalizedProject;
+}
+
+async function prepareProjectUpdate(db: D1Database, existingProject: Project, projectData: Partial<Project>): Promise<Partial<Project>> {
+    const nextProjectData = { ...projectData };
+    const finalFeatured = nextProjectData.featured !== undefined ? nextProjectData.featured : existingProject.featured;
+
+    if (finalFeatured) {
+        if (!existingProject.featured) {
+            nextProjectData.order_index = await nextFeaturedOrderIndex(db);
+        }
+    } else {
+        nextProjectData.order_index = null;
+    }
+
+    const finalOrderIndex = nextProjectData.order_index !== undefined ? nextProjectData.order_index : existingProject.order_index;
+    validateProjectFeaturedOrderState(finalFeatured, finalOrderIndex);
+    return nextProjectData;
 }
 
 async function listProjectDtoRows(db: D1Database): Promise<AdminProjectDto[]> {
@@ -129,7 +225,7 @@ async function listProjectDtoRows(db: D1Database): Promise<AdminProjectDto[]> {
         FROM projects
         LEFT JOIN project_skills ON project_skills.project_id = projects.id
         LEFT JOIN skills ON skills.id = project_skills.skill_id
-        ORDER BY projects.featured DESC, projects.category DESC, projects.order_index ASC, projects.created_at DESC, skills.name ASC`
+        ORDER BY projects.featured DESC, projects.order_index ASC, projects.category DESC, projects.created_at DESC, skills.name ASC`
     ).all<ProjectSkillRow>();
 
     const projects = new Map<number, AdminProjectDto>();
@@ -188,20 +284,19 @@ export async function listAdminProjectDtos(db: D1Database): Promise<AdminProject
 
 export async function listProjects(db: D1Database): Promise<Project[]> {
     const { results } = await db.prepare(
-        'SELECT * FROM projects ORDER BY featured DESC, category DESC, order_index ASC, created_at DESC'
+        'SELECT * FROM projects ORDER BY featured DESC, order_index ASC, category DESC, created_at DESC'
     ).all<Project>();
 
     return results.map(normalizeProject);
 }
 
 export async function createProject(db: D1Database, projectData: Omit<Project, 'id' | 'created_at'>): Promise<Project> {
-    const { title, description, image_url, image_key, link, category, featured, order_index } = projectData;
+    const preparedProject = await prepareProjectCreate(db, projectData);
+    const { title, description, image_url, image_key, link, category, featured, order_index } = preparedProject;
 
     if (!title || !description || !link || !category || typeof featured !== 'boolean') {
         throw new MissingRequiredProjectFieldsError();
     }
-
-    validateProjectFeaturedOrderState(featured, order_index);
 
     try {
         const result = await db.prepare(
@@ -229,13 +324,12 @@ export async function createProject(db: D1Database, projectData: Omit<Project, '
 }
 
 export async function createProjectWithSkills(db: D1Database, projectData: Omit<Project, 'id' | 'created_at'>, skillIds: number[]): Promise<Project> {
-    const { title, description, image_url, image_key, link, category, featured, order_index } = projectData;
+    const preparedProject = await prepareProjectCreate(db, projectData);
+    const { title, description, image_url, image_key, link, category, featured, order_index } = preparedProject;
 
     if (!title || !description || !link || !category || typeof featured !== 'boolean') {
         throw new MissingRequiredProjectFieldsError();
     }
-
-    validateProjectFeaturedOrderState(featured, order_index);
 
     const id = createProjectId();
 
@@ -284,49 +378,26 @@ export async function updateProject(db: D1Database, id: number, projectData: Par
         throw new ProjectNotFoundError();
     }
 
-    const finalFeatured = projectData.featured !== undefined ? projectData.featured : existingProject.featured;
-    const finalOrderIndex = projectData.order_index !== undefined ? projectData.order_index : existingProject.order_index;
-
-    validateProjectFeaturedOrderState(finalFeatured, finalOrderIndex);
-
-    const updates: Partial<Omit<Project, 'id' | 'created_at'>> = {
-        title: projectData.title,
-        description: projectData.description,
-        image_url: projectData.image_url,
-        image_key: projectData.image_key,
-        link: projectData.link,
-        category: projectData.category,
-        featured: projectData.featured,
-        order_index: projectData.order_index,
-    };
-
-    const fields: string[] = [];
-    const values: unknown[] = [];
-
-    for (const [key, value] of Object.entries(updates)) {
-        if (value === undefined) {
-            continue;
-        }
-
-        fields.push(`${key} = ?`);
-        values.push(value);
-    }
+    const preparedProjectData = await prepareProjectUpdate(db, existingProject, projectData);
+    const { fields, values } = projectUpdateFields(preparedProjectData);
 
     if (fields.length === 0) {
         throw new NoFieldsToUpdateError();
     }
 
-    values.push(id);
-
     try {
         await db.prepare(
             `UPDATE projects SET ${fields.join(', ')} WHERE id = ?`
-        ).bind(...values).run();
+        ).bind(...values, id).run();
     } catch (error) {
         if (isConflictError(error)) {
             throw new ProjectConflictError();
         }
         throw error;
+    }
+
+    if (existingProject.featured && preparedProjectData.featured === false) {
+        await compactFeaturedProjectOrder(db);
     }
 
     const updatedProject = await getProjectById(db, id);
@@ -345,12 +416,8 @@ export async function updateProjectWithSkills(db: D1Database, id: number, projec
         throw new ProjectNotFoundError();
     }
 
-    const finalFeatured = projectData.featured !== undefined ? projectData.featured : existingProject.featured;
-    const finalOrderIndex = projectData.order_index !== undefined ? projectData.order_index : existingProject.order_index;
-
-    validateProjectFeaturedOrderState(finalFeatured, finalOrderIndex);
-
-    const { fields, values } = projectUpdateFields(projectData);
+    const preparedProjectData = await prepareProjectUpdate(db, existingProject, projectData);
+    const { fields, values } = projectUpdateFields(preparedProjectData);
 
     if (fields.length === 0 && skillIds === null) {
         throw new NoFieldsToUpdateError();
@@ -370,6 +437,10 @@ export async function updateProjectWithSkills(db: D1Database, id: number, projec
 
     await batchProjectWrite(db, statements);
 
+    if (existingProject.featured && preparedProjectData.featured === false) {
+        await compactFeaturedProjectOrder(db);
+    }
+
     const updatedProject = await getProjectById(db, id);
 
     if (!updatedProject) {
@@ -380,6 +451,12 @@ export async function updateProjectWithSkills(db: D1Database, id: number, projec
 }
 
 export async function deleteProject(db: D1Database, id: number): Promise<void> {
+    const existingProject = await getProjectById(db, id);
+
+    if (!existingProject) {
+        throw new ProjectNotFoundError();
+    }
+
     const result = await db.prepare(
         'DELETE FROM projects WHERE id = ?'
     ).bind(id).run();
@@ -387,6 +464,18 @@ export async function deleteProject(db: D1Database, id: number): Promise<void> {
     if (result.meta.changes === 0) {
         throw new ProjectNotFoundError();
     }
+
+    if (existingProject.featured) {
+        await compactFeaturedProjectOrder(db);
+    }
+}
+
+export async function reorderFeaturedProjects(db: D1Database, projectIds: number[]): Promise<void> {
+    assertProjectReorderIds(projectIds);
+
+    const currentFeaturedIds = await featuredProjectIds(db);
+    assertSameProjectIds(projectIds, currentFeaturedIds);
+    await batchProjectWrite(db, reorderStatements(db, projectIds));
 }
 
 export async function replaceProjectSkills(db: D1Database, projectId: number, skillIds: number[]): Promise<void> {

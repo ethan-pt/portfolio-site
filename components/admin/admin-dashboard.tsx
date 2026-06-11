@@ -14,7 +14,6 @@ type ProjectForm = {
     category: string;
     link: string;
     featured: boolean;
-    orderIndex: string;
     selectedSkillIds: number[];
     imageMode: ImageMode;
     imageUrl: string;
@@ -41,7 +40,6 @@ const emptyProjectForm: ProjectForm = {
     category: '',
     link: '',
     featured: false,
-    orderIndex: '',
     selectedSkillIds: [],
     imageMode: 'external',
     imageUrl: '',
@@ -68,7 +66,6 @@ function projectToForm(project: AdminProjectDto): ProjectForm {
         category: project.category,
         link: project.link,
         featured: project.featured,
-        orderIndex: project.order_index == null ? '' : String(project.order_index),
         selectedSkillIds: project.skills.map((skill) => skill.id),
         imageMode: 'unchanged',
         imageUrl: project.image_url ?? '',
@@ -85,11 +82,6 @@ function skillToForm(skill: SkillDto): SkillForm {
     };
 }
 
-function positiveInteger(value: string): number | null {
-    const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
 function isValidHttpUrl(value: string): boolean {
     try {
         const url = new URL(value);
@@ -97,6 +89,21 @@ function isValidHttpUrl(value: string): boolean {
     } catch {
         return false;
     }
+}
+
+function sameOrder(left: number[], right: number[]): boolean {
+    return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
+function moveId(ids: number[], fromIndex: number, toIndex: number): number[] {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= ids.length || toIndex >= ids.length) {
+        return ids;
+    }
+
+    const nextIds = [...ids];
+    const [movedId] = nextIds.splice(fromIndex, 1);
+    nextIds.splice(toIndex, 0, movedId);
+    return nextIds;
 }
 
 async function readApiError(response: Response, fallback: string): Promise<string> {
@@ -142,11 +149,14 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
     const [skills, setSkills] = useState<SkillDto[]>([]);
     const [projectForm, setProjectForm] = useState<ProjectForm>(emptyProjectForm);
     const [skillForm, setSkillForm] = useState<SkillForm>(emptySkillForm);
+    const [featuredOrderIds, setFeaturedOrderIds] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
     const [savingProject, setSavingProject] = useState(false);
     const [savingSkill, setSavingSkill] = useState(false);
+    const [savingOrder, setSavingOrder] = useState(false);
     const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
     const [deletingSkillId, setDeletingSkillId] = useState<number | null>(null);
+    const [draggingProjectId, setDraggingProjectId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [projectErrors, setProjectErrors] = useState<Record<string, string>>({});
     const [skillErrors, setSkillErrors] = useState<Record<string, string>>({});
@@ -155,7 +165,13 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
     const skillEditorRef = useRef<HTMLDivElement>(null);
 
     const skillById = useMemo(() => new Map(skills.map((skill) => [skill.id, skill])), [skills]);
+    const projectById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
+    const serverFeaturedIds = useMemo(() => projects.filter((project) => project.featured).map((project) => project.id), [projects]);
+    const featuredOrderDirty = useMemo(() => !sameOrder(featuredOrderIds, serverFeaturedIds), [featuredOrderIds, serverFeaturedIds]);
+    const featuredOrderProjects = useMemo(() => featuredOrderIds.map((id) => projectById.get(id)).filter((project): project is AdminProjectDto => Boolean(project)), [featuredOrderIds, projectById]);
     const projectImage = selectedProjectImage(projects, projectForm);
+    const projectBusy = savingProject || savingOrder || deletingProjectId !== null;
+    const uploadBusy = uploadState.status === 'signing' || uploadState.status === 'uploading' || uploadState.status === 'finalizing';
 
     async function refreshData() {
         setError(null);
@@ -165,6 +181,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
         ]);
         setProjects(nextProjects);
         setSkills(nextSkills);
+        setFeaturedOrderIds(nextProjects.filter((project) => project.featured).map((project) => project.id));
     }
 
     useEffect(() => {
@@ -201,12 +218,6 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
         if (!projectForm.description.trim()) errors.description = 'Description is required';
         if (!projectForm.category.trim()) errors.category = 'Category is required';
         if (!isValidHttpUrl(projectForm.link.trim())) errors.link = 'Use a valid http or https URL';
-        if (projectForm.featured && positiveInteger(projectForm.orderIndex) === null) {
-            errors.orderIndex = 'Featured projects require a positive order index';
-        }
-        if (!projectForm.featured && projectForm.orderIndex.trim()) {
-            errors.orderIndex = 'Non-featured projects must be unordered';
-        }
         if (projectForm.imageMode === 'external' && projectForm.imageUrl.trim() && !isValidHttpUrl(projectForm.imageUrl.trim())) {
             errors.imageUrl = 'Use a valid http or https image URL';
         }
@@ -230,6 +241,39 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
 
     function focusSkillEditor() {
         window.requestAnimationFrame(() => skillEditorRef.current?.focus());
+    }
+
+    function moveFeaturedProject(projectId: number, direction: -1 | 1) {
+        setFeaturedOrderIds((currentIds) => {
+            const fromIndex = currentIds.indexOf(projectId);
+            return moveId(currentIds, fromIndex, fromIndex + direction);
+        });
+    }
+
+    function handleFeaturedDrop(targetProjectId: number) {
+        if (draggingProjectId === null || draggingProjectId === targetProjectId) {
+            setDraggingProjectId(null);
+            return;
+        }
+
+        setFeaturedOrderIds((currentIds) => moveId(currentIds, currentIds.indexOf(draggingProjectId), currentIds.indexOf(targetProjectId)));
+        setDraggingProjectId(null);
+    }
+
+    async function saveFeaturedOrder() {
+        setSavingOrder(true);
+        setError(null);
+        try {
+            await jsonRequest('/api/admin/projects/reorder', {
+                method: 'PATCH',
+                body: JSON.stringify({ project_ids: featuredOrderIds }),
+            });
+            await refreshData();
+        } catch (saveError) {
+            setError(saveError instanceof Error ? saveError.message : 'Failed to save project order');
+        } finally {
+            setSavingOrder(false);
+        }
     }
 
     async function uploadImage(file: File) {
@@ -287,7 +331,6 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
             category: projectForm.category.trim(),
             link: projectForm.link.trim(),
             featured: projectForm.featured,
-            order_index: projectForm.featured ? positiveInteger(projectForm.orderIndex) : null,
             skill_ids: projectForm.selectedSkillIds,
         };
 
@@ -429,6 +472,42 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                     </div>
                 ) : null}
 
+                <section className={`${panelClass} rounded-md xl:col-span-2`}>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#B4A5A5]/15 px-4 py-3">
+                        <div>
+                            <h2 className="text-base font-semibold">Featured order</h2>
+                            <p className="mt-1 text-sm text-[#B4A5A5]">Drag rows or use move controls, then save the final order.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <button className={buttonClass} type="button" disabled={!featuredOrderDirty || savingOrder || projectBusy} onClick={saveFeaturedOrder}>{savingOrder ? 'Saving order' : 'Save order'}</button>
+                            <button className={buttonClass} type="button" disabled={!featuredOrderDirty || savingOrder} onClick={() => setFeaturedOrderIds(serverFeaturedIds)}>Reset order</button>
+                        </div>
+                    </div>
+                    <div className="grid gap-2 p-4">
+                        {loading ? <p className="text-sm text-[#B4A5A5]">Loading featured projects...</p> : featuredOrderProjects.length === 0 ? <p className="text-sm text-[#B4A5A5]">No featured projects to order.</p> : featuredOrderProjects.map((project, index) => (
+                            <div
+                                key={project.id}
+                                className={`grid gap-3 rounded-md border px-3 py-3 text-sm md:grid-cols-[3rem_1fr_auto] md:items-center ${draggingProjectId === project.id ? 'border-[#B4A5A5]/80 bg-[#B4A5A5]/10' : 'border-[#B4A5A5]/15 bg-[#1f1f23]'}`}
+                                draggable={!projectBusy}
+                                onDragStart={(event) => { setDraggingProjectId(project.id); event.dataTransfer.effectAllowed = 'move'; }}
+                                onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }}
+                                onDrop={() => handleFeaturedDrop(project.id)}
+                                onDragEnd={() => setDraggingProjectId(null)}
+                            >
+                                <div className="font-mono text-[#B4A5A5]">#{index + 1}</div>
+                                <div>
+                                    <div className="font-semibold text-white">{project.title}</div>
+                                    <div className="mt-1 text-[#B4A5A5]">{project.category}</div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button className={buttonClass} type="button" disabled={projectBusy || index === 0} onClick={() => moveFeaturedProject(project.id, -1)}>Up</button>
+                                    <button className={buttonClass} type="button" disabled={projectBusy || index === featuredOrderProjects.length - 1} onClick={() => moveFeaturedProject(project.id, 1)}>Down</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
                 <section className={`${panelClass} rounded-md`}>
                     <div className="flex items-center justify-between border-b border-[#B4A5A5]/15 px-4 py-3">
                         <h2 className="text-base font-semibold">Projects</h2>
@@ -461,7 +540,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                                         <td className="px-4 py-3">
                                             <div className="flex gap-2">
                                                 <button className={buttonClass} type="button" onClick={() => { setProjectForm(projectToForm(project)); setProjectErrors({}); focusProjectEditor(); }}>Edit</button>
-                                                <button className={dangerButtonClass} type="button" disabled={deletingProjectId === project.id} onClick={() => deleteProjectRow(project)}>
+                                                <button className={dangerButtonClass} type="button" disabled={deletingProjectId === project.id || savingOrder} onClick={() => deleteProjectRow(project)}>
                                                     {deletingProjectId === project.id ? 'Deleting' : 'Delete'}
                                                 </button>
                                             </div>
@@ -486,11 +565,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                         </div>
                         {projectErrors.category ? <p className="text-sm text-red-200">{projectErrors.category}</p> : null}
                         {projectErrors.link ? <p className="text-sm text-red-200">{projectErrors.link}</p> : null}
-                        <div className="grid gap-3 md:grid-cols-2">
-                            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={projectForm.featured} onChange={(event) => setProjectForm({ ...projectForm, featured: event.target.checked, orderIndex: event.target.checked ? projectForm.orderIndex : '' })} /> Featured</label>
-                            <label className="grid gap-1 text-sm">Order index<input className={inputClass} inputMode="numeric" value={projectForm.orderIndex} disabled={!projectForm.featured} onChange={(event) => setProjectForm({ ...projectForm, orderIndex: event.target.value })} /></label>
-                        </div>
-                        {projectErrors.orderIndex ? <p className="text-sm text-red-200">{projectErrors.orderIndex}</p> : null}
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={projectForm.featured} onChange={(event) => setProjectForm({ ...projectForm, featured: event.target.checked })} /> Featured</label>
 
                         <fieldset className="grid gap-2 border-t border-[#B4A5A5]/15 pt-3">
                             <legend className="text-sm font-semibold">Skills</legend>
@@ -533,7 +608,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                         </fieldset>
 
                         <div className="flex flex-wrap gap-2 border-t border-[#B4A5A5]/15 pt-3">
-                            <button className={buttonClass} type="button" disabled={savingProject || uploadState.status === 'signing' || uploadState.status === 'uploading' || uploadState.status === 'finalizing'} onClick={saveProject}>
+                            <button className={buttonClass} type="button" disabled={savingProject || savingOrder || uploadBusy} onClick={saveProject}>
                                 {savingProject ? 'Saving' : 'Save project'}
                             </button>
                             <button className={buttonClass} type="button" onClick={() => { setProjectForm(emptyProjectForm); setProjectErrors({}); }}>Reset</button>

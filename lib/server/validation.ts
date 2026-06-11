@@ -136,7 +136,7 @@ export function parseCreateProject(body: Record<string, unknown>): ProjectCreate
         link,
         category: stringField(body, 'category'),
         featured: booleanField(body, 'featured'),
-        order_index: nullableIntegerField(body, 'order_index'),
+        order_index: optionalNullableIntegerField(body, 'order_index') ?? null,
     };
 }
 
