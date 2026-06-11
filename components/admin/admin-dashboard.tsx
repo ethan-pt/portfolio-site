@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AdminProjectDto, AdminUserDto, SkillDto } from '@/types/api';
+import type { AdminProjectDto, AdminUserDto, CategoryDto, SkillDto } from '@/types/api';
 
 type ApiErrorBody = { error?: string; message?: string };
 type ImageMode = 'unchanged' | 'upload' | 'external' | 'clear';
@@ -11,7 +11,7 @@ type ProjectForm = {
     id: number | null;
     title: string;
     description: string;
-    category: string;
+    selectedCategoryIds: number[];
     link: string;
     featured: boolean;
     selectedSkillIds: number[];
@@ -23,8 +23,13 @@ type ProjectForm = {
 type SkillForm = {
     id: number | null;
     name: string;
-    category: string;
+    selectedCategoryIds: number[];
     featured: boolean;
+};
+
+type CategoryForm = {
+    id: number | null;
+    name: string;
 };
 
 type UploadState = {
@@ -37,7 +42,7 @@ const emptyProjectForm: ProjectForm = {
     id: null,
     title: '',
     description: '',
-    category: '',
+    selectedCategoryIds: [],
     link: '',
     featured: false,
     selectedSkillIds: [],
@@ -49,8 +54,13 @@ const emptyProjectForm: ProjectForm = {
 const emptySkillForm: SkillForm = {
     id: null,
     name: '',
-    category: '',
+    selectedCategoryIds: [],
     featured: false,
+};
+
+const emptyCategoryForm: CategoryForm = {
+    id: null,
+    name: '',
 };
 
 const inputClass = 'w-full rounded-md border border-[#B4A5A5]/25 bg-[#1f1f23] px-3 py-2 text-sm text-white outline-none transition focus:border-[#B4A5A5]/70';
@@ -58,12 +68,20 @@ const buttonClass = 'rounded-md border border-[#B4A5A5]/30 px-3 py-2 text-sm fon
 const dangerButtonClass = 'rounded-md border border-red-300/35 px-3 py-2 text-sm font-semibold text-red-100 transition hover:border-red-200/75 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50';
 const panelClass = 'border border-[#B4A5A5]/18 bg-[#1a1a1d]';
 
+function categoryNames(categories: CategoryDto[]): string {
+    return categories.map((category) => category.name).join(', ') || 'None';
+}
+
+function toggleId(ids: number[], id: number, checked: boolean): number[] {
+    return checked ? [...ids, id] : ids.filter((currentId) => currentId !== id);
+}
+
 function projectToForm(project: AdminProjectDto): ProjectForm {
     return {
         id: project.id,
         title: project.title,
         description: project.description,
-        category: project.category,
+        selectedCategoryIds: project.categories.map((category) => category.id),
         link: project.link,
         featured: project.featured,
         selectedSkillIds: project.skills.map((skill) => skill.id),
@@ -77,9 +95,13 @@ function skillToForm(skill: SkillDto): SkillForm {
     return {
         id: skill.id,
         name: skill.name,
-        category: skill.category,
+        selectedCategoryIds: skill.categories.map((category) => category.id),
         featured: skill.featured,
     };
+}
+
+function categoryToForm(category: CategoryDto): CategoryForm {
+    return { id: category.id, name: category.name };
 }
 
 function isValidHttpUrl(value: string): boolean {
@@ -147,22 +169,28 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
     const [user, setUser] = useState<AdminUserDto>(initialUser);
     const [projects, setProjects] = useState<AdminProjectDto[]>([]);
     const [skills, setSkills] = useState<SkillDto[]>([]);
+    const [categories, setCategories] = useState<CategoryDto[]>([]);
     const [projectForm, setProjectForm] = useState<ProjectForm>(emptyProjectForm);
     const [skillForm, setSkillForm] = useState<SkillForm>(emptySkillForm);
+    const [categoryForm, setCategoryForm] = useState<CategoryForm>(emptyCategoryForm);
     const [featuredOrderIds, setFeaturedOrderIds] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
     const [savingProject, setSavingProject] = useState(false);
     const [savingSkill, setSavingSkill] = useState(false);
+    const [savingCategory, setSavingCategory] = useState(false);
     const [savingOrder, setSavingOrder] = useState(false);
     const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
     const [deletingSkillId, setDeletingSkillId] = useState<number | null>(null);
+    const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
     const [draggingProjectId, setDraggingProjectId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [projectErrors, setProjectErrors] = useState<Record<string, string>>({});
     const [skillErrors, setSkillErrors] = useState<Record<string, string>>({});
+    const [categoryErrors, setCategoryErrors] = useState<Record<string, string>>({});
     const [uploadState, setUploadState] = useState<UploadState>({ status: 'idle', message: '', progress: 0 });
     const projectEditorRef = useRef<HTMLDivElement>(null);
     const skillEditorRef = useRef<HTMLDivElement>(null);
+    const categoryEditorRef = useRef<HTMLDivElement>(null);
 
     const skillById = useMemo(() => new Map(skills.map((skill) => [skill.id, skill])), [skills]);
     const projectById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
@@ -175,12 +203,14 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
 
     async function refreshData() {
         setError(null);
-        const [nextProjects, nextSkills] = await Promise.all([
+        const [nextProjects, nextSkills, nextCategories] = await Promise.all([
             jsonRequest<AdminProjectDto[]>('/api/admin/projects'),
             jsonRequest<SkillDto[]>('/api/admin/skills'),
+            jsonRequest<CategoryDto[]>('/api/admin/categories'),
         ]);
         setProjects(nextProjects);
         setSkills(nextSkills);
+        setCategories(nextCategories);
         setFeaturedOrderIds(nextProjects.filter((project) => project.featured).map((project) => project.id));
     }
 
@@ -216,7 +246,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
 
         if (!projectForm.title.trim()) errors.title = 'Title is required';
         if (!projectForm.description.trim()) errors.description = 'Description is required';
-        if (!projectForm.category.trim()) errors.category = 'Category is required';
+        if (projectForm.selectedCategoryIds.length === 0) errors.categories = 'At least one category is required';
         if (!isValidHttpUrl(projectForm.link.trim())) errors.link = 'Use a valid http or https URL';
         if (projectForm.imageMode === 'external' && projectForm.imageUrl.trim() && !isValidHttpUrl(projectForm.imageUrl.trim())) {
             errors.imageUrl = 'Use a valid http or https image URL';
@@ -231,7 +261,13 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
     function validateSkill(): Record<string, string> {
         const errors: Record<string, string> = {};
         if (!skillForm.name.trim()) errors.name = 'Name is required';
-        if (!skillForm.category.trim()) errors.category = 'Category is required';
+        if (skillForm.selectedCategoryIds.length === 0) errors.categories = 'At least one category is required';
+        return errors;
+    }
+
+    function validateCategory(): Record<string, string> {
+        const errors: Record<string, string> = {};
+        if (!categoryForm.name.trim()) errors.name = 'Name is required';
         return errors;
     }
 
@@ -241,6 +277,10 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
 
     function focusSkillEditor() {
         window.requestAnimationFrame(() => skillEditorRef.current?.focus());
+    }
+
+    function focusCategoryEditor() {
+        window.requestAnimationFrame(() => categoryEditorRef.current?.focus());
     }
 
     function moveFeaturedProject(projectId: number, direction: -1 | 1) {
@@ -328,7 +368,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
         const payload: Record<string, unknown> = {
             title: projectForm.title.trim(),
             description: projectForm.description.trim(),
-            category: projectForm.category.trim(),
+            category_ids: projectForm.selectedCategoryIds,
             link: projectForm.link.trim(),
             featured: projectForm.featured,
             skill_ids: projectForm.selectedSkillIds,
@@ -405,7 +445,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                 body: JSON.stringify({
                     ...(isEditing ? { id: skillForm.id } : {}),
                     name: skillForm.name.trim(),
-                    category: skillForm.category.trim(),
+                    category_ids: skillForm.selectedCategoryIds,
                     featured: skillForm.featured,
                 }),
             });
@@ -442,6 +482,56 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
             setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete skill');
         } finally {
             setDeletingSkillId(null);
+        }
+    }
+
+    async function saveCategory() {
+        const validation = validateCategory();
+        setCategoryErrors(validation);
+        if (Object.keys(validation).length > 0) return;
+
+        const isEditing = categoryForm.id !== null;
+        setSavingCategory(true);
+        setError(null);
+        try {
+            await jsonRequest('/api/admin/categories', {
+                method: isEditing ? 'PATCH' : 'POST',
+                body: JSON.stringify({
+                    ...(isEditing ? { id: categoryForm.id } : {}),
+                    name: categoryForm.name.trim(),
+                }),
+            });
+            await refreshData();
+            setCategoryForm(emptyCategoryForm);
+            focusCategoryEditor();
+        } catch (saveError) {
+            setError(saveError instanceof Error ? saveError.message : 'Failed to save category');
+        } finally {
+            setSavingCategory(false);
+        }
+    }
+
+    async function deleteCategoryRow(category: CategoryDto) {
+        const confirmed = window.confirm(`Delete "${category.name}"? Categories still assigned to projects or skills cannot be deleted.`);
+        if (!confirmed) return;
+
+        setDeletingCategoryId(category.id);
+        setError(null);
+        try {
+            await jsonRequest('/api/admin/categories', {
+                method: 'DELETE',
+                body: JSON.stringify({ id: category.id }),
+            });
+            await refreshData();
+            if (categoryForm.id === category.id) {
+                setCategoryForm(emptyCategoryForm);
+            }
+            setProjectForm((current) => ({ ...current, selectedCategoryIds: current.selectedCategoryIds.filter((id) => id !== category.id) }));
+            setSkillForm((current) => ({ ...current, selectedCategoryIds: current.selectedCategoryIds.filter((id) => id !== category.id) }));
+        } catch (deleteError) {
+            setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete category');
+        } finally {
+            setDeletingCategoryId(null);
         }
     }
 
@@ -497,7 +587,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                                 <div className="font-mono text-[#B4A5A5]">#{index + 1}</div>
                                 <div>
                                     <div className="font-semibold text-white">{project.title}</div>
-                                    <div className="mt-1 text-[#B4A5A5]">{project.category}</div>
+                                    <div className="mt-1 text-[#B4A5A5]">{categoryNames(project.categories)}</div>
                                 </div>
                                 <div className="flex gap-2">
                                     <button className={buttonClass} type="button" disabled={projectBusy || index === 0} onClick={() => moveFeaturedProject(project.id, -1)}>Up</button>
@@ -518,7 +608,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                             <thead className="text-xs uppercase text-[#B4A5A5]">
                                 <tr className="border-b border-[#B4A5A5]/15">
                                     <th className="px-4 py-3 font-semibold">Title</th>
-                                    <th className="px-4 py-3 font-semibold">Category</th>
+                                    <th className="px-4 py-3 font-semibold">Categories</th>
                                     <th className="px-4 py-3 font-semibold">Order</th>
                                     <th className="px-4 py-3 font-semibold">Skills</th>
                                     <th className="px-4 py-3 font-semibold">Image</th>
@@ -533,7 +623,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                                 ) : projects.map((project) => (
                                     <tr key={project.id} className="border-b border-[#B4A5A5]/10 align-top">
                                         <td className="px-4 py-3 font-medium text-white">{project.title}</td>
-                                        <td className="px-4 py-3 text-[#d8d0d0]">{project.category}</td>
+                                        <td className="px-4 py-3 text-[#d8d0d0]">{categoryNames(project.categories)}</td>
                                         <td className="px-4 py-3 text-[#d8d0d0]">{project.featured ? project.order_index : 'Unfeatured'}</td>
                                         <td className="px-4 py-3 text-[#d8d0d0]">{project.skills.map((skill) => skill.name).join(', ') || 'None'}</td>
                                         <td className="px-4 py-3 text-[#d8d0d0]">{project.image_key ? 'Managed' : project.image_url ? 'External' : 'None'}</td>
@@ -560,10 +650,20 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                         <label className="grid gap-1 text-sm">Description<textarea className={`${inputClass} min-h-24`} value={projectForm.description} onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })} /></label>
                         {projectErrors.description ? <p className="text-sm text-red-200">{projectErrors.description}</p> : null}
                         <div className="grid gap-3 md:grid-cols-2">
-                            <label className="grid gap-1 text-sm">Category<input className={inputClass} value={projectForm.category} onChange={(event) => setProjectForm({ ...projectForm, category: event.target.value })} /></label>
+                            <fieldset className="grid gap-2 text-sm">
+                                <legend>Categories</legend>
+                                <div className="grid max-h-40 gap-2 overflow-auto rounded-md border border-[#B4A5A5]/15 p-2">
+                                    {categories.length === 0 ? <p className="text-sm text-[#B4A5A5]">Create categories first.</p> : categories.map((category) => (
+                                        <label key={category.id} className="flex items-center gap-2 text-sm text-[#eee8e8]">
+                                            <input type="checkbox" checked={projectForm.selectedCategoryIds.includes(category.id)} onChange={(event) => setProjectForm({ ...projectForm, selectedCategoryIds: toggleId(projectForm.selectedCategoryIds, category.id, event.target.checked) })} />
+                                            {category.name}
+                                        </label>
+                                    ))}
+                                </div>
+                            </fieldset>
                             <label className="grid gap-1 text-sm">Project link<input className={inputClass} value={projectForm.link} onChange={(event) => setProjectForm({ ...projectForm, link: event.target.value })} /></label>
                         </div>
-                        {projectErrors.category ? <p className="text-sm text-red-200">{projectErrors.category}</p> : null}
+                        {projectErrors.categories ? <p className="text-sm text-red-200">{projectErrors.categories}</p> : null}
                         {projectErrors.link ? <p className="text-sm text-red-200">{projectErrors.link}</p> : null}
                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={projectForm.featured} onChange={(event) => setProjectForm({ ...projectForm, featured: event.target.checked })} /> Featured</label>
 
@@ -575,14 +675,9 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                                         <input
                                             type="checkbox"
                                             checked={projectForm.selectedSkillIds.includes(skill.id)}
-                                            onChange={(event) => {
-                                                const nextIds = event.target.checked
-                                                    ? [...projectForm.selectedSkillIds, skill.id]
-                                                    : projectForm.selectedSkillIds.filter((id) => id !== skill.id);
-                                                setProjectForm({ ...projectForm, selectedSkillIds: nextIds });
-                                            }}
+                                            onChange={(event) => setProjectForm({ ...projectForm, selectedSkillIds: toggleId(projectForm.selectedSkillIds, skill.id, event.target.checked) })}
                                         />
-                                        {skill.name} <span className="text-[#B4A5A5]">{skill.category}</span>
+                                        {skill.name} <span className="text-[#B4A5A5]">{categoryNames(skill.categories)}</span>
                                     </label>
                                 ))}
                             </div>
@@ -623,12 +718,12 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[520px] text-left text-sm">
-                            <thead className="text-xs uppercase text-[#B4A5A5]"><tr className="border-b border-[#B4A5A5]/15"><th className="px-4 py-3">Name</th><th className="px-4 py-3">Category</th><th className="px-4 py-3">Featured</th><th className="px-4 py-3">Actions</th></tr></thead>
+                            <thead className="text-xs uppercase text-[#B4A5A5]"><tr className="border-b border-[#B4A5A5]/15"><th className="px-4 py-3">Name</th><th className="px-4 py-3">Categories</th><th className="px-4 py-3">Featured</th><th className="px-4 py-3">Actions</th></tr></thead>
                             <tbody>
                                 {loading ? <tr><td className="px-4 py-8 text-[#B4A5A5]" colSpan={4}>Loading skills...</td></tr> : skills.length === 0 ? <tr><td className="px-4 py-8 text-[#B4A5A5]" colSpan={4}>No skills yet.</td></tr> : skills.map((skill) => (
                                     <tr key={skill.id} className="border-b border-[#B4A5A5]/10">
                                         <td className="px-4 py-3 font-medium">{skill.name}</td>
-                                        <td className="px-4 py-3 text-[#d8d0d0]">{skill.category}</td>
+                                        <td className="px-4 py-3 text-[#d8d0d0]">{categoryNames(skill.categories)}</td>
                                         <td className="px-4 py-3 text-[#d8d0d0]">{skill.featured ? 'Yes' : 'No'}</td>
                                         <td className="px-4 py-3"><div className="flex gap-2"><button className={buttonClass} type="button" onClick={() => { setSkillForm(skillToForm(skill)); setSkillErrors({}); focusSkillEditor(); }}>Edit</button><button className={dangerButtonClass} type="button" disabled={deletingSkillId === skill.id} onClick={() => deleteSkillRow(skill)}>{deletingSkillId === skill.id ? 'Deleting' : 'Delete'}</button></div></td>
                                     </tr>
@@ -643,8 +738,18 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                     <div className="mt-4 grid gap-3">
                         <label className="grid gap-1 text-sm">Name<input className={inputClass} value={skillForm.name} onChange={(event) => setSkillForm({ ...skillForm, name: event.target.value })} /></label>
                         {skillErrors.name ? <p className="text-sm text-red-200">{skillErrors.name}</p> : null}
-                        <label className="grid gap-1 text-sm">Category<input className={inputClass} value={skillForm.category} onChange={(event) => setSkillForm({ ...skillForm, category: event.target.value })} /></label>
-                        {skillErrors.category ? <p className="text-sm text-red-200">{skillErrors.category}</p> : null}
+                        <fieldset className="grid gap-2 text-sm">
+                            <legend>Categories</legend>
+                            <div className="grid max-h-40 gap-2 overflow-auto rounded-md border border-[#B4A5A5]/15 p-2 sm:grid-cols-2">
+                                {categories.length === 0 ? <p className="text-sm text-[#B4A5A5]">Create categories first.</p> : categories.map((category) => (
+                                    <label key={category.id} className="flex items-center gap-2 text-sm text-[#eee8e8]">
+                                        <input type="checkbox" checked={skillForm.selectedCategoryIds.includes(category.id)} onChange={(event) => setSkillForm({ ...skillForm, selectedCategoryIds: toggleId(skillForm.selectedCategoryIds, category.id, event.target.checked) })} />
+                                        {category.name}
+                                    </label>
+                                ))}
+                            </div>
+                        </fieldset>
+                        {skillErrors.categories ? <p className="text-sm text-red-200">{skillErrors.categories}</p> : null}
                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={skillForm.featured} onChange={(event) => setSkillForm({ ...skillForm, featured: event.target.checked })} /> Featured</label>
                         <div className="flex flex-wrap gap-2 border-t border-[#B4A5A5]/15 pt-3">
                             <button className={buttonClass} type="button" disabled={savingSkill} onClick={saveSkill}>{savingSkill ? 'Saving' : 'Save skill'}</button>
@@ -653,9 +758,42 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                     </div>
                 </section>
 
+                <section className={`${panelClass} rounded-md`}>
+                    <div className="flex items-center justify-between border-b border-[#B4A5A5]/15 px-4 py-3">
+                        <h2 className="text-base font-semibold">Categories</h2>
+                        <button className={buttonClass} type="button" onClick={() => { setCategoryForm(emptyCategoryForm); setCategoryErrors({}); focusCategoryEditor(); }}>New category</button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[420px] text-left text-sm">
+                            <thead className="text-xs uppercase text-[#B4A5A5]"><tr className="border-b border-[#B4A5A5]/15"><th className="px-4 py-3">Name</th><th className="px-4 py-3">Actions</th></tr></thead>
+                            <tbody>
+                                {loading ? <tr><td className="px-4 py-8 text-[#B4A5A5]" colSpan={2}>Loading categories...</td></tr> : categories.length === 0 ? <tr><td className="px-4 py-8 text-[#B4A5A5]" colSpan={2}>No categories yet.</td></tr> : categories.map((category) => (
+                                    <tr key={category.id} className="border-b border-[#B4A5A5]/10">
+                                        <td className="px-4 py-3 font-medium">{category.name}</td>
+                                        <td className="px-4 py-3"><div className="flex gap-2"><button className={buttonClass} type="button" onClick={() => { setCategoryForm(categoryToForm(category)); setCategoryErrors({}); focusCategoryEditor(); }}>Edit</button><button className={dangerButtonClass} type="button" disabled={deletingCategoryId === category.id} onClick={() => deleteCategoryRow(category)}>{deletingCategoryId === category.id ? 'Deleting' : 'Delete'}</button></div></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section ref={categoryEditorRef} tabIndex={-1} className={`${panelClass} rounded-md p-4 outline-none`}>
+                    <h2 className="text-base font-semibold">{categoryForm.id ? 'Edit category' : 'Create category'}</h2>
+                    <div className="mt-4 grid gap-3">
+                        <label className="grid gap-1 text-sm">Name<input className={inputClass} value={categoryForm.name} onChange={(event) => setCategoryForm({ ...categoryForm, name: event.target.value })} /></label>
+                        {categoryErrors.name ? <p className="text-sm text-red-200">{categoryErrors.name}</p> : null}
+                        <div className="flex flex-wrap gap-2 border-t border-[#B4A5A5]/15 pt-3">
+                            <button className={buttonClass} type="button" disabled={savingCategory} onClick={saveCategory}>{savingCategory ? 'Saving' : 'Save category'}</button>
+                            <button className={buttonClass} type="button" onClick={() => { setCategoryForm(emptyCategoryForm); setCategoryErrors({}); }}>Reset</button>
+                        </div>
+                    </div>
+                </section>
+
                 <aside className="xl:col-span-2 rounded-md border border-[#B4A5A5]/15 px-4 py-3 text-sm text-[#B4A5A5]">
                     Required config: AUTH_COOKIE_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_ADMIN_ID or GITHUB_ADMIN_LOGIN, SITE_ORIGIN, R2 signing variables, R2_PUBLIC_BASE_URL, and R2 CORS for this admin origin. For local device testing, keep SITE_ORIGIN, secure cookies, GitHub callback URLs, and allowedDevOrigins aligned with the preview origin.
                     {projectForm.selectedSkillIds.length > 0 ? <span className="block pt-2">Selected skills: {projectForm.selectedSkillIds.map((id) => skillById.get(id)?.name ?? id).join(', ')}</span> : null}
+                    {projectForm.selectedCategoryIds.length > 0 ? <span className="block pt-2">Selected project categories: {categories.filter((category) => projectForm.selectedCategoryIds.includes(category.id)).map((category) => category.name).join(', ')}</span> : null}
                 </aside>
             </div>
         </main>
