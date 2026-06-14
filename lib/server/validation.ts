@@ -23,7 +23,7 @@ const allowedProjectFields = new Set([
     'category_ids',
 ]);
 
-const allowedSkillFields = new Set(['name', 'featured', 'category_ids']);
+const allowedSkillFields = new Set(['name', 'icon_slug', 'featured', 'category_ids']);
 const allowedCategoryFields = new Set(['name']);
 
 function validateNoUnknownFields(body: Record<string, unknown>, allowedFields: Set<string>): void {
@@ -272,6 +272,7 @@ export function parseCreateSkill(body: Record<string, unknown>): SkillCreateInpu
     return {
         name: stringField(body, 'name'),
         category: '',
+        icon_slug: optionalNullableStringField(body, 'icon_slug') ?? null,
         featured: booleanField(body, 'featured'),
     };
 }
@@ -283,6 +284,11 @@ export function parseUpdateSkill(body: Record<string, unknown>): SkillUpdateInpu
 
     if ('name' in body) {
         update.name = stringField(body, 'name');
+    }
+
+    const iconSlug = optionalNullableStringField(body, 'icon_slug');
+    if (iconSlug !== undefined) {
+        update.icon_slug = iconSlug;
     }
 
     const featured = optionalBooleanField(body, 'featured');

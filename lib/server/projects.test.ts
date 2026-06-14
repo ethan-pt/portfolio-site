@@ -135,8 +135,8 @@ describe('project data access', () => {
             featured: true,
             order_index: 1,
             skills: [
-                { id: 7, name: 'React', categories: [{ id: 12, name: 'Front-End' }], featured: true },
-                { id: 8, name: 'TypeScript', categories: [{ id: 13, name: 'Language' }], featured: true },
+                { id: 7, name: 'React', icon_slug: null, icon: null, categories: [{ id: 12, name: 'Front-End' }], featured: true },
+                { id: 8, name: 'TypeScript', icon_slug: null, icon: null, categories: [{ id: 13, name: 'Language' }], featured: true },
             ],
         }]);
     });

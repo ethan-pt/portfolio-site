@@ -2,6 +2,7 @@ import type { AdminProjectDto, CategoryDto, ProjectDto, ProjectImageDto, Project
 import type { Project, ProjectImage } from '@/types/db';
 import type { ProjectImageInput } from './validation';
 import { categoryAssignmentStatements, requireCategoriesByIds } from './categories';
+import { getSkillIcon } from './skill-icons';
 
 export class ProjectNotFoundError extends Error {
     constructor(message = 'Project not found') {
@@ -55,6 +56,7 @@ interface ProjectSkillRow {
     project_id: number;
     skill_id: number;
     skill_name: string;
+    skill_icon_slug: string | null;
     skill_featured: boolean | number;
 }
 
@@ -350,7 +352,7 @@ async function listProjectDtoRows(db: D1Database): Promise<AdminProjectDto[]> {
     ).bind(...projectIds).all<ProjectCategoryRow>();
 
     const { results: projectSkillRows } = await db.prepare(
-        `SELECT project_skills.project_id, skills.id AS skill_id, skills.name AS skill_name, skills.featured AS skill_featured
+        `SELECT project_skills.project_id, skills.id AS skill_id, skills.name AS skill_name, skills.icon_slug AS skill_icon_slug, skills.featured AS skill_featured
          FROM project_skills
          JOIN skills ON skills.id = project_skills.skill_id
          WHERE project_skills.project_id IN (${placeholders})
@@ -395,6 +397,8 @@ async function listProjectDtoRows(db: D1Database): Promise<AdminProjectDto[]> {
         skills.push({
             id: row.skill_id,
             name: row.skill_name,
+            icon_slug: row.skill_icon_slug ?? null,
+            icon: getSkillIcon(row.skill_icon_slug),
             categories: skillCategories.get(row.skill_id) ?? [],
             featured: Boolean(row.skill_featured),
         });

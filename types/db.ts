@@ -9,6 +9,7 @@ export interface Project {
     link: string;
     live_url?: string | null;
     category: string;
+    icon_slug?: string | null;
     featured: boolean;
     order_index: number | null;
     created_at: string;

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS projects (
     link TEXT NOT NULL,
     live_url TEXT,
     category TEXT NOT NULL,
+    icon_slug TEXT,
     featured BOOLEAN NOT NULL DEFAULT FALSE,
     order_index INTEGER UNIQUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
