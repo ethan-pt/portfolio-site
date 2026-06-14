@@ -1,8 +1,7 @@
 import { Header } from "@/components/header";
 import { Hero } from "@/components/hero";
 import { About } from "@/components/about";
-import { ProjectsSection } from "@/components/projects-section";
-import { SkillsSection } from "@/components/skills-section";
+import { HomeSections } from "@/components/home-sections";
 import { ContactSection } from "@/components/contact-section";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { listProjectDtos } from "@/lib/server/projects";
@@ -26,13 +25,14 @@ async function getHomeData(env: CloudflareEnv): Promise<{ projects: ProjectDto[]
   }
 }
 
-function projectReferenceCounts(projects: ProjectDto[]): Record<number, number> {
-  return projects.reduce<Record<number, number>>((counts, project) => {
+function skillProjectReferences(projects: ProjectDto[]): Record<number, { count: number; titles: string[] }> {
+  return projects.reduce<Record<number, { count: number; titles: string[] }>>((references, project) => {
     for (const skill of project.skills) {
-      counts[skill.id] = (counts[skill.id] ?? 0) + 1;
+      const current = references[skill.id] ?? { count: 0, titles: [] };
+      references[skill.id] = { count: current.count + 1, titles: [...current.titles, project.title] };
     }
 
-    return counts;
+    return references;
   }, {});
 }
 
@@ -40,15 +40,14 @@ export default async function Home() {
   const { env } = await getCloudflareContext({ async: true });
   const contact = getPortfolioContact();
   const { projects, skills } = await getHomeData(env);
-  const skillReferenceCounts = projectReferenceCounts(projects);
+  const references = skillProjectReferences(projects);
 
   return (
     <main className="min-h-screen bg-[#151515] text-[#f8f5f5]">
       <Header contact={contact} />
       <Hero contact={contact} />
       <About />
-      <ProjectsSection projects={projects} />
-      <SkillsSection skills={skills} projectReferenceCounts={skillReferenceCounts} />
+      <HomeSections projects={projects} skills={skills} skillProjectReferences={references} />
       <ContactSection contact={contact} />
     </main>
   );

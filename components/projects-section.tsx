@@ -7,6 +7,10 @@ import { ProjectCard } from "./project-card";
 
 type ProjectsSectionProps = {
   projects: ProjectDto[];
+  selectedSkillIds?: number[];
+  onSelectedSkillIdsChange?: (selectedIds: number[]) => void;
+  selectedCategoryIds?: number[];
+  onSelectedCategoryIdsChange?: (selectedIds: number[]) => void;
 };
 
 function uniqueOptions(options: FilterOption[]): FilterOption[] {
@@ -19,9 +23,11 @@ function includesAll(selectedIds: number[], availableIds: number[]): boolean {
   return selectedIds.every((selectedId) => availableIds.includes(selectedId));
 }
 
-export function ProjectsSection({ projects }: ProjectsSectionProps) {
-  const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+export function ProjectsSection({ projects, selectedSkillIds: controlledSkillIds, onSelectedSkillIdsChange, selectedCategoryIds: controlledCategoryIds, onSelectedCategoryIdsChange }: ProjectsSectionProps) {
+  const [localSelectedSkillIds, setLocalSelectedSkillIds] = useState<number[]>([]);
+  const [localSelectedCategoryIds, setLocalSelectedCategoryIds] = useState<number[]>([]);
+  const selectedSkillIds = controlledSkillIds ?? localSelectedSkillIds;
+  const selectedCategoryIds = controlledCategoryIds ?? localSelectedCategoryIds;
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [openProjectId, setOpenProjectId] = useState<number | null>(null);
 
@@ -49,6 +55,24 @@ export function ProjectsSection({ projects }: ProjectsSectionProps) {
   const hasNonFeaturedProjects = projects.some((project) => !project.featured);
   const canToggleMore = !filtersActive && hasFeaturedProjects && hasNonFeaturedProjects;
   const visibleProjects = filtersActive || showAllProjects || !hasFeaturedProjects ? filteredProjects : featuredProjects;
+
+  function setSelectedSkillIds(selectedIds: number[]) {
+    if (onSelectedSkillIdsChange) {
+      onSelectedSkillIdsChange(selectedIds);
+      return;
+    }
+
+    setLocalSelectedSkillIds(selectedIds);
+  }
+
+  function setSelectedCategoryIds(selectedIds: number[]) {
+    if (onSelectedCategoryIdsChange) {
+      onSelectedCategoryIdsChange(selectedIds);
+      return;
+    }
+
+    setLocalSelectedCategoryIds(selectedIds);
+  }
 
   function resetFilters() {
     setSelectedSkillIds([]);

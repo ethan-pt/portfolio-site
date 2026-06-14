@@ -3,10 +3,17 @@
 import { useMemo, useState } from "react";
 import type { SkillDto } from "@/types/api";
 import { FilterDropdown, type FilterOption } from "./filter-dropdown";
+import { SkillIcon } from "./skill-icon";
+
+export type SkillProjectSummary = {
+  count: number;
+  titles: string[];
+};
 
 type SkillsSectionProps = {
   skills: SkillDto[];
-  projectReferenceCounts: Record<number, number>;
+  projectReferences: Record<number, SkillProjectSummary>;
+  onProjectCountClick?: (skillId: number) => void;
 };
 
 function uniqueOptions(options: FilterOption[]): FilterOption[] {
@@ -19,7 +26,7 @@ function includesAll(selectedIds: number[], availableIds: number[]): boolean {
   return selectedIds.every((selectedId) => availableIds.includes(selectedId));
 }
 
-export function SkillsSection({ skills, projectReferenceCounts }: SkillsSectionProps) {
+export function SkillsSection({ skills, projectReferences, onProjectCountClick }: SkillsSectionProps) {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [showAllSkills, setShowAllSkills] = useState(false);
   const categoryOptions = useMemo(
@@ -31,12 +38,12 @@ export function SkillsSection({ skills, projectReferenceCounts }: SkillsSectionP
       [...skills].sort((left, right) => {
         if (left.featured !== right.featured) return left.featured ? -1 : 1;
 
-        const referenceDifference = (projectReferenceCounts[right.id] ?? 0) - (projectReferenceCounts[left.id] ?? 0);
+        const referenceDifference = (projectReferences[right.id]?.count ?? 0) - (projectReferences[left.id]?.count ?? 0);
         if (referenceDifference !== 0) return referenceDifference;
 
         return left.name.localeCompare(right.name);
       }),
-    [projectReferenceCounts, skills]
+    [projectReferences, skills]
   );
   const filteredSkills = useMemo(
     () =>
@@ -83,30 +90,41 @@ export function SkillsSection({ skills, projectReferenceCounts }: SkillsSectionP
             </div>
             {visibleSkills.length > 0 ? (
               <>
-                <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {visibleSkills.map((skill) => {
-                    const referenceCount = projectReferenceCounts[skill.id] ?? 0;
-                    const projectLabel = referenceCount === 1 ? "project" : "projects";
+                    const reference = projectReferences[skill.id] ?? { count: 0, titles: [] };
+                    const projectLabel = reference.count === 1 ? "project" : "projects";
+                    const projectTitle = reference.titles.length > 0 ? reference.titles.join(", ") : "No linked projects";
 
                     return (
-                      <section key={skill.id} className="rounded-lg border border-[#B4A5A5]/15 bg-[#151515]/80 p-6">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-semibold text-white" style={{ cursor: "default" }}>
-                            {skill.name}
-                          </h3>
-                          {skill.featured ? (
-                            <span className="rounded-full bg-[#B4A5A5] px-2.5 py-1 text-xs font-bold text-[#151515]">
-                              Featured
-                            </span>
-                          ) : null}
+                      <section key={skill.id} className="rounded-md border border-[#B4A5A5]/15 bg-[#151515]/80 p-4">
+                        <div className="flex items-start gap-3">
+                          <SkillIcon name={skill.name} icon={skill.icon} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="truncate text-base font-semibold text-white" style={{ cursor: "default" }}>
+                                {skill.name}
+                              </h3>
+                              {skill.featured ? (
+                                <span className="rounded-full bg-[#B4A5A5] px-2 py-0.5 text-[0.65rem] font-bold text-[#151515]">
+                                  Featured
+                                </span>
+                              ) : null}
+                            </div>
+                            <a
+                              className="mt-2 inline-block text-sm font-semibold text-[#B4A5A5] underline-offset-4 transition hover:text-white hover:underline"
+                              href="#projects"
+                              title={projectTitle}
+                              onClick={() => onProjectCountClick?.(skill.id)}
+                            >
+                              {reference.count} {projectLabel}
+                            </a>
+                          </div>
                         </div>
-                        <p className="mt-3 text-sm font-semibold text-[#B4A5A5]">
-                          {referenceCount} {projectLabel}
-                        </p>
                         {skill.categories.length > 0 ? (
-                          <div className="mt-5 flex flex-wrap gap-2">
+                          <div className="mt-4 flex flex-wrap gap-1.5">
                             {skill.categories.map((category) => (
-                              <span key={category.id} className="rounded-full border border-[#B4A5A5]/20 px-3 py-1.5 text-sm font-semibold text-[#f6f2f2]">
+                              <span key={category.id} className="rounded-full border border-[#B4A5A5]/20 px-2 py-1 text-xs font-semibold text-[#f6f2f2]">
                                 {category.name}
                               </span>
                             ))}

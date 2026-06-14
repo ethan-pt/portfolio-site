@@ -13,7 +13,12 @@ const skills: SkillDto[] = [
   { id: 3, name: "TypeScript", categories: [frontend, language], featured: false },
   { id: 4, name: "D1", categories: [backend], featured: false },
 ];
-const projectReferenceCounts = { 1: 2, 2: 1, 3: 3, 4: 2 };
+const projectReferences = {
+  1: { count: 2, titles: ["API", "Worker"] },
+  2: { count: 1, titles: ["Dashboard"] },
+  3: { count: 3, titles: ["Dashboard", "API", "Tool"] },
+  4: { count: 2, titles: ["Worker", "Tool"] },
+};
 
 function skillHeadings() {
   return screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
@@ -29,21 +34,23 @@ afterEach(() => cleanup());
 
 describe("SkillsSection", () => {
   test("shows featured skills by default with counts and toggles non-featured skills", () => {
-    render(<SkillsSection skills={skills} projectReferenceCounts={projectReferenceCounts} />);
+    render(<SkillsSection skills={skills} projectReferences={projectReferences} />);
 
     expect(skillHeadings()).toEqual(["React"]);
-    expect(screen.getByText("1 project")).toBeTruthy();
+    const projectLink = screen.getByRole("link", { name: "1 project" });
+    expect(projectLink.getAttribute("href")).toBe("#projects");
+    expect(projectLink.getAttribute("title")).toBe("Dashboard");
 
     fireEvent.click(screen.getByRole("button", { name: "More skills" }));
     expect(skillHeadings()).toEqual(["React", "TypeScript", "D1", "Zod"]);
-    expect(screen.getByText("3 projects")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "3 projects" }).getAttribute("title")).toBe("Dashboard, API, Tool");
 
     fireEvent.click(screen.getByRole("button", { name: "Less skills" }));
     expect(skillHeadings()).toEqual(["React"]);
   });
 
   test("requires every selected skill category while including non-featured matches", () => {
-    render(<SkillsSection skills={skills} projectReferenceCounts={projectReferenceCounts} />);
+    render(<SkillsSection skills={skills} projectReferences={projectReferences} />);
 
     fireEvent.click(within(skillsSection()).getByLabelText("Frontend"));
     fireEvent.click(within(skillsSection()).getByLabelText("Language"));
@@ -54,7 +61,7 @@ describe("SkillsSection", () => {
   });
 
   test("reset clears skill filters and restores featured-only display", () => {
-    render(<SkillsSection skills={skills} projectReferenceCounts={projectReferenceCounts} />);
+    render(<SkillsSection skills={skills} projectReferences={projectReferences} />);
 
     fireEvent.click(screen.getByRole("button", { name: "More skills" }));
     fireEvent.click(within(skillsSection()).getByLabelText("Language"));
@@ -68,7 +75,7 @@ describe("SkillsSection", () => {
   });
 
   test("shows all sorted skills by default when none are featured", () => {
-    render(<SkillsSection skills={skills.map((skill) => ({ ...skill, featured: false }))} projectReferenceCounts={projectReferenceCounts} />);
+    render(<SkillsSection skills={skills.map((skill) => ({ ...skill, featured: false }))} projectReferences={projectReferences} />);
 
     expect(skillHeadings()).toEqual(["TypeScript", "D1", "Zod", "React"]);
     expect(screen.queryByRole("button", { name: "More skills" })).toBeNull();
