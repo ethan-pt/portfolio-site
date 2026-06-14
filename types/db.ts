@@ -29,6 +29,7 @@ export interface Skill {
     id: number;
     name: string;
     category: string;
+    icon_slug?: string | null;
     featured: boolean;
     created_at: string;
 }
