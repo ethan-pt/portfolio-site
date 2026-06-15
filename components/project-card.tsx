@@ -52,7 +52,7 @@ function ProjectImage({ image }: { image: ProjectImageDto }) {
     <img
       src={image.image_url}
       alt=""
-      className="absolute inset-0 h-full w-full object-cover opacity-90 transition group-hover:opacity-100"
+      className="absolute inset-0 h-full w-full object-contain opacity-90 transition group-hover:opacity-100"
     />
   );
 }
@@ -86,7 +86,7 @@ export function ProjectCard({ project, isOpen, onToggleOpen }: ProjectCardProps)
 
   return (
     <article className="group grid overflow-hidden rounded-lg border border-[#B4A5A5]/15 bg-[#151515] shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-[#B4A5A5]/35 md:grid-cols-[0.95fr_1.05fr]">
-      <div className={`relative self-start overflow-hidden ${isOpen ? "h-64 min-h-64" : "h-40 min-h-40"} bg-[#301B3F]`}>
+      <div className={`relative self-start overflow-hidden ${isOpen ? "h-64 min-h-64" : "h-40 min-h-40"} bg-[#201926]`}>
         {activeImage ? <ProjectImage image={activeImage} /> : <ProjectPlaceholder title={project.title} isOpen={isOpen} />}
       </div>
       <div className="flex flex-col p-6 md:p-8">

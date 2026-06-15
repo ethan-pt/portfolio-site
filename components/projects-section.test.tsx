@@ -106,6 +106,9 @@ describe("ProjectsSection", () => {
     expect(image).toBeTruthy();
     expect(image?.className).toContain("absolute");
     expect(image?.className).toContain("inset-0");
+    expect(image?.className).toContain("h-full");
+    expect(image?.className).toContain("w-full");
+    expect(image?.className).toContain("object-contain");
     expect(image?.parentElement?.className).toContain("relative");
     expect(image?.parentElement?.className).toContain("self-start");
     expect(image?.parentElement?.className).toContain("overflow-hidden");
