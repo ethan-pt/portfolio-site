@@ -95,6 +95,21 @@ describe("ProjectsSection", () => {
     expect(projectHeadings()).toEqual(["Dashboard"]);
   });
 
+  test("contains project images within a fixed media frame", () => {
+    const { container } = render(<ProjectsSection projects={[{
+      ...projects[0],
+      thumbnail_image: { id: 100, image_url: "https://cdn.example.com/project.png", image_key: null, is_thumbnail: true, order_index: 0 },
+      images: [{ id: 100, image_url: "https://cdn.example.com/project.png", image_key: null, is_thumbnail: true, order_index: 0 }],
+    }]} />);
+
+    const image = container.querySelector('img');
+    expect(image).toBeTruthy();
+    expect(image?.className).toContain("absolute");
+    expect(image?.className).toContain("inset-0");
+    expect(image?.parentElement?.className).toContain("relative");
+    expect(image?.parentElement?.className).toContain("overflow-hidden");
+  });
+
   test("requires every selected skill and project category while including non-featured matches", () => {
     render(<ProjectsSection projects={projects} />);
 

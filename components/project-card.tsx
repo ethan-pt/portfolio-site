@@ -24,12 +24,11 @@ function hasProjectLink(link: string | null | undefined): link is string {
 }
 
 function ProjectPlaceholder({ title, isOpen }: { title: string; isOpen: boolean }) {
-  const minHeightClass = isOpen ? "min-h-64" : "min-h-40";
   const paddingClass = isOpen ? "p-6" : "p-4";
   const initialsClass = isOpen ? "h-20 w-20 text-2xl" : "h-14 w-14 text-lg";
 
   return (
-    <div className={`flex h-full ${minHeightClass} flex-col justify-between bg-[linear-gradient(135deg,#301B3F,#3C415C)] ${paddingClass}`}>
+    <div className={`flex h-full flex-col justify-between bg-[linear-gradient(135deg,#301B3F,#3C415C)] ${paddingClass}`}>
       <div className="flex gap-2">
         <span className="h-3 w-3 rounded-full bg-[#B4A5A5]" />
         <span className="h-3 w-3 rounded-full bg-white/45" />
@@ -47,14 +46,13 @@ function ProjectPlaceholder({ title, isOpen }: { title: string; isOpen: boolean 
   );
 }
 
-function ProjectImage({ image, isOpen }: { image: ProjectImageDto; isOpen: boolean }) {
-  const minHeightClass = isOpen ? "min-h-64" : "min-h-40";
+function ProjectImage({ image }: { image: ProjectImageDto }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- R2 images run unoptimized on Cloudflare.
     <img
       src={image.image_url}
       alt=""
-      className={`h-full ${minHeightClass} w-full object-cover opacity-90 transition group-hover:opacity-100`}
+      className="absolute inset-0 h-full w-full object-cover opacity-90 transition group-hover:opacity-100"
     />
   );
 }
@@ -88,8 +86,8 @@ export function ProjectCard({ project, isOpen, onToggleOpen }: ProjectCardProps)
 
   return (
     <article className="group grid overflow-hidden rounded-lg border border-[#B4A5A5]/15 bg-[#151515] shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-[#B4A5A5]/35 md:grid-cols-[0.95fr_1.05fr]">
-      <div className={`${isOpen ? "min-h-64" : "min-h-40"} bg-[#301B3F]`}>
-        {activeImage ? <ProjectImage image={activeImage} isOpen={isOpen} /> : <ProjectPlaceholder title={project.title} isOpen={isOpen} />}
+      <div className={`relative overflow-hidden ${isOpen ? "h-64 min-h-64" : "h-40 min-h-40"} bg-[#301B3F]`}>
+        {activeImage ? <ProjectImage image={activeImage} /> : <ProjectPlaceholder title={project.title} isOpen={isOpen} />}
       </div>
       <div className="flex flex-col p-6 md:p-8">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
