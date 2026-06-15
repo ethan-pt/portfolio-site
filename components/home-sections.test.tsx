@@ -5,8 +5,8 @@ import type { ProjectDto, SkillDto } from "@/types/api";
 
 const frontend = { id: 10, name: "Frontend" };
 const backend = { id: 11, name: "Backend" };
-const react: SkillDto = { id: 20, name: "React", icon_slug: null, icon: null, categories: [frontend], featured: false };
-const d1: SkillDto = { id: 21, name: "D1", icon_slug: null, icon: null, categories: [backend], featured: true };
+const react: SkillDto = { id: 20, name: "React", icon_url: null, categories: [frontend], featured: false };
+const d1: SkillDto = { id: 21, name: "D1", icon_url: null, categories: [backend], featured: true };
 
 const projects: ProjectDto[] = [
   {

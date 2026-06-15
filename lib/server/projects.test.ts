@@ -102,8 +102,8 @@ describe('project data access', () => {
         ] });
         const projectSkillsStatement = createMockStatement();
         projectSkillsStatement.all.mockResolvedValue({ results: [
-            { project_id: 1, skill_id: 7, skill_name: 'React', skill_featured: 1 },
-            { project_id: 1, skill_id: 8, skill_name: 'TypeScript', skill_featured: 1 },
+            { project_id: 1, skill_id: 7, skill_name: 'React', skill_icon_url: 'https://cdn.example.com/react.svg', skill_featured: 1 },
+            { project_id: 1, skill_id: 8, skill_name: 'TypeScript', skill_icon_url: null, skill_featured: 1 },
         ] });
         const skillCategoriesStatement = createMockStatement();
         skillCategoriesStatement.all.mockResolvedValue({ results: [
@@ -135,8 +135,8 @@ describe('project data access', () => {
             featured: true,
             order_index: 1,
             skills: [
-                { id: 7, name: 'React', icon_slug: null, icon: null, categories: [{ id: 12, name: 'Front-End' }], featured: true },
-                { id: 8, name: 'TypeScript', icon_slug: null, icon: null, categories: [{ id: 13, name: 'Language' }], featured: true },
+                { id: 7, name: 'React', icon_url: 'https://cdn.example.com/react.svg', categories: [{ id: 12, name: 'Front-End' }], featured: true },
+                { id: 8, name: 'TypeScript', icon_url: null, categories: [{ id: 13, name: 'Language' }], featured: true },
             ],
         }]);
     });

@@ -8,10 +8,10 @@ const backend = { id: 11, name: "Backend" };
 const language = { id: 12, name: "Language" };
 
 const skills: SkillDto[] = [
-  { id: 1, name: "Zod", categories: [backend], featured: false },
-  { id: 2, name: "React", categories: [frontend], featured: true },
-  { id: 3, name: "TypeScript", categories: [frontend, language], featured: false },
-  { id: 4, name: "D1", categories: [backend], featured: false },
+  { id: 1, name: "Zod", icon_url: null, categories: [backend], featured: false },
+  { id: 2, name: "React", icon_url: "https://cdn.example.com/react.svg", categories: [frontend], featured: true },
+  { id: 3, name: "TypeScript", icon_url: null, categories: [frontend, language], featured: false },
+  { id: 4, name: "D1", icon_url: null, categories: [backend], featured: false },
 ];
 const projectReferences = {
   1: { count: 2, titles: ["API", "Worker"] },

@@ -43,6 +43,7 @@ describe('skill data access', () => {
         id: 1,
         name: 'React',
         category: 'Frontend',
+        icon_url: null,
         featured: true,
         created_at: '2023-01-01T00:00:00Z',
     };
@@ -62,7 +63,7 @@ describe('skill data access', () => {
         mock.prepare.mockReturnValueOnce(skillsStatement).mockReturnValueOnce(skillsStatement).mockReturnValueOnce(categoriesStatement);
 
         await expect(listSkills(mock.db)).resolves.toEqual([existingSkill]);
-        await expect(listSkillDtos(mock.db)).resolves.toEqual([{ id: 1, name: 'React', icon_slug: null, icon: null, categories: [{ id: 10, name: 'Frontend' }, { id: 11, name: 'UI' }], featured: true }]);
+        await expect(listSkillDtos(mock.db)).resolves.toEqual([{ id: 1, name: 'React', icon_url: null, categories: [{ id: 10, name: 'Frontend' }, { id: 11, name: 'UI' }], featured: true }]);
         expect(mock.prepare).toHaveBeenCalledWith('SELECT * FROM skills ORDER BY featured DESC, name ASC');
     });
 
@@ -72,12 +73,12 @@ describe('skill data access', () => {
         mock.prepare.mockReturnValue(categoriesStatement);
         mock.batch.mockResolvedValue([]);
 
-        const skill = await createSkill(mock.db, { name: 'TypeScript', category: '', icon_slug: 'typescript', featured: true }, [10]);
+        const skill = await createSkill(mock.db, { name: 'TypeScript', category: '', icon_url: 'https://cdn.example.com/typescript.svg', featured: true }, [10]);
 
-        expect(mock.prepare).toHaveBeenCalledWith('INSERT INTO skills (id, name, category, icon_slug, featured) VALUES (?, ?, ?, ?, ?)');
+        expect(mock.prepare).toHaveBeenCalledWith('INSERT INTO skills (id, name, category, icon_url, featured) VALUES (?, ?, ?, ?, ?)');
         expect(mock.prepare).toHaveBeenCalledWith('INSERT INTO skill_categories (skill_id, category_id) VALUES (?, ?)');
         expect(mock.batch).toHaveBeenCalledTimes(1);
-        expect(skill).toEqual({ id: expect.any(Number), name: 'TypeScript', category: 'Language', icon_slug: 'typescript', featured: true, created_at: expect.any(String) });
+        expect(skill).toEqual({ id: expect.any(Number), name: 'TypeScript', category: 'Language', icon_url: 'https://cdn.example.com/typescript.svg', featured: true, created_at: expect.any(String) });
     });
 
     test('rejects missing required fields before writing', async () => {
@@ -107,10 +108,10 @@ describe('skill data access', () => {
             .mockImplementation(() => createMockStatement());
         mock.batch.mockResolvedValue([]);
 
-        const result = await updateSkill(mock.db, 1, { name: 'React Updated', icon_slug: null }, [11]);
+        const result = await updateSkill(mock.db, 1, { name: 'React Updated', icon_url: null }, [11]);
 
         expect(result).toEqual(updatedSkill);
-        expect(mock.prepare).toHaveBeenCalledWith('UPDATE skills SET name = ?, category = ?, icon_slug = ? WHERE id = ?');
+        expect(mock.prepare).toHaveBeenCalledWith('UPDATE skills SET name = ?, category = ?, icon_url = ? WHERE id = ?');
         expect(mock.prepare).toHaveBeenCalledWith('DELETE FROM skill_categories WHERE skill_id = ?');
         expect(mock.batch).toHaveBeenCalledTimes(1);
     });
