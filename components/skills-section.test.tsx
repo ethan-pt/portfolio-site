@@ -45,8 +45,6 @@ describe("SkillsSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "More skills" }));
     expect(skillHeadings()).toEqual(["Google Cloud Platform (GCP)", "TypeScript", "D1", "Zod"]);
     expect(screen.getAllByTestId("category-rail").every((rail) => rail.getAttribute("data-layout") === "compact")).toBe(true);
-    expect(screen.getAllByRole("button", { name: "Previous categories" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Next categories" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Used in 3 projects" }).getAttribute("title")).toBe("Dashboard, API, Tool");
 
     fireEvent.click(screen.getByRole("button", { name: "Less skills" }));

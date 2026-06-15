@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CategoryDto } from "@/types/api";
 
 type CategoryRailProps = {
@@ -12,6 +12,31 @@ type CategoryRailProps = {
 
 export function CategoryRail({ categories, expanded = false, size = "md", className = "" }: CategoryRailProps) {
   const railRef = useRef<HTMLDivElement>(null);
+  const [canNavigate, setCanNavigate] = useState(false);
+
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail || expanded) {
+      setCanNavigate(false);
+      return;
+    }
+
+    function updateCanNavigate() {
+      setCanNavigate(rail.scrollWidth > rail.clientWidth);
+    }
+
+    updateCanNavigate();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateCanNavigate);
+      return () => window.removeEventListener("resize", updateCanNavigate);
+    }
+
+    const observer = new ResizeObserver(updateCanNavigate);
+    observer.observe(rail);
+
+    return () => observer.disconnect();
+  }, [categories, expanded]);
 
   if (categories.length === 0) {
     return null;
@@ -24,7 +49,6 @@ export function CategoryRail({ categories, expanded = false, size = "md", classN
   const chipSize = size === "sm"
     ? "px-2 py-1 tracking-normal text-[#f6f2f2] normal-case"
     : "px-3 py-1 tracking-[0.14em] text-[#B4A5A5] uppercase";
-  const canNavigate = !expanded && categories.length > 1;
   const railClassName = canNavigate ? "" : className;
 
   function scrollCategories(direction: -1 | 1) {
