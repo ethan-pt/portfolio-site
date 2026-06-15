@@ -59,7 +59,7 @@ describe("HomeSections", () => {
     expect(screen.getByRole("heading", { level: 3, name: "Dashboard" })).toBeTruthy();
     expect(screen.queryByRole("heading", { level: 3, name: "Worker API" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("link", { name: "1 project" }));
+    fireEvent.click(screen.getByRole("link", { name: "Used in 1 project" }));
 
     expect(screen.getByRole("heading", { level: 3, name: "Worker API" })).toBeTruthy();
     expect(screen.queryByRole("heading", { level: 3, name: "Dashboard" })).toBeNull();
