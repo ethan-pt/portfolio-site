@@ -130,7 +130,7 @@ export function SkillsSection({ skills, projectReferences, onProjectCountClick }
                             ) : null}
                           </div>
                         </div>
-                        <CategoryRail categories={skill.categories} size="sm" className="mt-4 gap-1.5" />
+                        <CategoryRail categories={skill.categories} size="sm" className="mt-4" />
                       </section>
                     );
                   })}
