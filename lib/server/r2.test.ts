@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { createSignedR2PutUrl, deleteManagedR2Object, verifyManagedR2Object } from './r2';
+import { createSignedR2PutUrl, deleteManagedR2Object, normalizeUploadContentType, verifyManagedR2Object } from './r2';
 
 const env = {
     R2_ACCOUNT_ID: 'account-id',
@@ -19,6 +19,12 @@ describe('R2 helpers', () => {
         expect(upload.key).toMatch(/^projects\/.+\.webp$/);
         expect(upload.publicUrl).toBe(`https://cdn.example.com/${upload.key}`);
         expect(upload.headers).toEqual({ 'Content-Type': 'image/webp' });
+    });
+
+    test('normalizes upload content types', () => {
+        expect(normalizeUploadContentType('image/jpg')).toBe('image/jpeg');
+        expect(normalizeUploadContentType('', 'photo.JPG')).toBe('image/jpeg');
+        expect(normalizeUploadContentType('application/octet-stream', 'photo.png')).toBe('image/png');
     });
 
     test('verifies and deletes only managed project image keys', async () => {

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AdminProjectDto, AdminUserDto, CategoryDto, SkillDto } from '@/types/api';
 import { SkillIcon } from '@/components/skill-icon';
 
-type ApiErrorBody = { error?: string; message?: string };
+type ApiErrorBody = { error?: string; message?: string; code?: string; details?: { stage?: string; contentType?: string; normalizedContentType?: string; size?: number; fileName?: string } };
 type ProjectFormImage = {
     image_url: string;
     image_key: string | null;
@@ -155,7 +155,9 @@ function moveId<T>(ids: T[], fromIndex: number, toIndex: number): T[] {
 async function readApiError(response: Response, fallback: string): Promise<string> {
     try {
         const body = await response.json() as ApiErrorBody;
-        return body.error ?? body.message ?? fallback;
+        const message = body.error ?? body.message ?? fallback;
+        const context = [body.code, body.details?.stage ? `stage: ${body.details.stage}` : null].filter(Boolean).join(', ');
+        return context ? `${message} (${context})` : message;
     } catch {
         return fallback;
     }

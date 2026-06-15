@@ -74,8 +74,35 @@ function encodeObjectKey(key: string): string {
     return key.split('/').map(encodePathSegment).join('/');
 }
 
+export function normalizeUploadContentType(contentType: string, fileName = ''): string {
+    const normalizedContentType = contentType.trim().toLowerCase();
+
+    if (normalizedContentType === 'image/jpg') {
+        return 'image/jpeg';
+    }
+
+    if (normalizedContentType && normalizedContentType !== 'application/octet-stream') {
+        return normalizedContentType;
+    }
+
+    const extension = fileName.trim().toLowerCase().split('.').pop();
+    switch (extension) {
+        case 'jpg':
+        case 'jpeg':
+            return 'image/jpeg';
+        case 'png':
+            return 'image/png';
+        case 'webp':
+            return 'image/webp';
+        case 'avif':
+            return 'image/avif';
+        default:
+            return normalizedContentType;
+    }
+}
+
 function extensionForContentType(contentType: string): string {
-    switch (contentType) {
+    switch (normalizeUploadContentType(contentType)) {
         case 'image/jpeg':
             return 'jpg';
         case 'image/png':
@@ -90,7 +117,7 @@ function extensionForContentType(contentType: string): string {
 }
 
 export function assertUploadContent(contentType: string, size: number): void {
-    if (!allowedContentTypes.has(contentType)) {
+    if (!allowedContentTypes.has(normalizeUploadContentType(contentType))) {
         throw new HttpError(400, 'Unsupported image type');
     }
 
@@ -135,13 +162,14 @@ export async function verifyManagedR2Object(bucket: R2Bucket, key: string): Prom
 }
 
 export async function createSignedR2PutUrl(env: R2SigningEnv, contentType: string, size: number): Promise<SignedUpload> {
-    assertUploadContent(contentType, size);
+    const normalizedContentType = normalizeUploadContentType(contentType);
+    assertUploadContent(normalizedContentType, size);
 
     const accountId = required(env, 'R2_ACCOUNT_ID');
     const accessKeyId = required(env, 'R2_ACCESS_KEY_ID');
     const secretAccessKey = required(env, 'R2_SECRET_ACCESS_KEY');
     const bucketName = required(env, 'R2_BUCKET_NAME');
-    const key = createProjectImageKey(contentType);
+    const key = createProjectImageKey(normalizedContentType);
     const host = `${accountId}.r2.cloudflarestorage.com`;
     const encodedKey = encodeObjectKey(key);
     const endpoint = `https://${host}/${bucketName}/${encodedKey}`;
@@ -189,7 +217,7 @@ export async function createSignedR2PutUrl(env: R2SigningEnv, contentType: strin
         key,
         expiresIn: uploadExpiresSeconds,
         headers: {
-            'Content-Type': contentType,
+            'Content-Type': normalizedContentType,
         },
     };
 }

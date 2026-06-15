@@ -57,11 +57,59 @@ describe('Admin uploads API route', () => {
         });
     });
 
+    test('accepts jpg alias and missing content type from file names', async () => {
+        const jpgResponse = await POST(uploadRequest(new File(['image'], 'photo.jpg', { type: 'image/jpg' })));
+        const pngResponse = await POST(uploadRequest(new File(['image'], 'diagram.png', { type: '' })));
+        const jpgBody = await jpgResponse.json() as { key: string };
+        const pngBody = await pngResponse.json() as { key: string };
+
+        expect(jpgResponse.status).toBe(201);
+        expect(pngResponse.status).toBe(201);
+        expect(jpgBody.key).toMatch(/^projects\/.+\.jpg$/);
+        expect(pngBody.key).toMatch(/^projects\/.+\.png$/);
+        expect(bucket.put).toHaveBeenNthCalledWith(1, jpgBody.key, expect.any(ArrayBuffer), {
+            httpMetadata: { contentType: 'image/jpeg' },
+        });
+        expect(bucket.put).toHaveBeenNthCalledWith(2, pngBody.key, expect.any(ArrayBuffer), {
+            httpMetadata: { contentType: 'image/png' },
+        });
+    });
+
     test('rejects unsupported files before writing to R2', async () => {
         const response = await POST(uploadRequest(new File(['text'], 'note.txt', { type: 'text/plain' })));
 
         expect(response.status).toBe(400);
-        expect(await response.json()).toEqual({ error: 'Unsupported image type' });
+        expect(await response.json()).toEqual({
+            error: 'Unsupported image type',
+            code: 'UPLOAD_VALIDATION_FAILED',
+            details: {
+                fileName: 'note.txt',
+                contentType: 'text/plain',
+                normalizedContentType: 'text/plain',
+                size: 4,
+                stage: 'validate',
+            },
+        });
         expect(bucket.put).not.toHaveBeenCalled();
+    });
+
+    test('returns diagnostics when R2 storage fails', async () => {
+        bucket.put.mockRejectedValueOnce(new Error('R2 unavailable'));
+
+        const response = await POST(uploadRequest(new File(['image'], 'image.png', { type: 'image/png' })));
+        const body = await response.json();
+
+        expect(response.status).toBe(500);
+        expect(body).toMatchObject({
+            error: 'Failed to upload image',
+            code: 'UPLOAD_FAILED',
+            details: {
+                fileName: 'image.png',
+                contentType: 'image/png',
+                normalizedContentType: 'image/png',
+                size: 5,
+                stage: 'r2_put',
+            },
+        });
     });
 });
