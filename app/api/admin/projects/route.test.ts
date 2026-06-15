@@ -108,6 +108,34 @@ describe('Admin projects API route', () => {
         }), [1], null);
     });
 
+
+    test('derives managed image array URLs before validating image_url', async () => {
+        const createdProject = { id: 8, title: 'Portfolio' };
+        (createProject as Mock).mockResolvedValue(createdProject);
+
+        const response = await POST(jsonRequest('POST', {
+            title: 'Portfolio',
+            description: 'Site',
+            link: 'https://example.com',
+            category_ids: [1],
+            featured: true,
+            images: [{
+                image_url: 'pending-upload-url',
+                image_key: 'projects/image.webp',
+                is_thumbnail: true,
+                order_index: 0,
+            }],
+        }));
+
+        expect(response.status).toBe(201);
+        expect(createProject).toHaveBeenCalledWith(mockDb, expect.any(Object), [1], [{
+            image_url: 'https://cdn.example.com/projects/image.webp',
+            image_key: 'projects/image.webp',
+            is_thumbnail: true,
+            order_index: 0,
+        }]);
+    });
+
     test('deletes the owned R2 object before deleting the project row', async () => {
         (getProjectById as Mock).mockResolvedValue({ id: 1, image_key: 'projects/image.webp' });
         (deleteManagedR2Object as Mock).mockResolvedValue(undefined);

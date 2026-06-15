@@ -63,6 +63,27 @@ function applyManagedImageUrls(env: CloudflareEnv, images: ProjectImageInput[] |
     return images.map((image) => applyManagedImageUrl(env, image));
 }
 
+function normalizeManagedImagePayloadUrls(env: CloudflareEnv, value: unknown): unknown {
+    if (!Array.isArray(value)) {
+        return value;
+    }
+
+    return value.map((rawImage) => {
+        if (typeof rawImage !== 'object' || rawImage === null || Array.isArray(rawImage)) {
+            return rawImage;
+        }
+
+        const image = rawImage as Record<string, unknown>;
+        const imageKey = typeof image.image_key === 'string' ? image.image_key : null;
+
+        if (!isManagedProjectImageKey(imageKey)) {
+            return rawImage;
+        }
+
+        return { ...image, image_url: publicR2Url(env, imageKey) };
+    });
+}
+
 function managedKeys(values: Array<string | null | undefined>): Set<string> {
     return new Set(values.filter(isManagedProjectImageKey));
 }
@@ -103,7 +124,7 @@ export async function POST(request: Request): Promise<Response> {
         const body = await readJsonObject(request);
         const skillIds = parseSkillIds(body.skill_ids) ?? [];
         const categoryIds = categoryIdsFromBody(body, true) ?? [];
-        const images = applyManagedImageUrls(env, parseProjectImages(body.images));
+        const images = applyManagedImageUrls(env, parseProjectImages(normalizeManagedImagePayloadUrls(env, body.images)));
         delete body.skill_ids;
         delete body.category_ids;
         delete body.images;
@@ -148,7 +169,7 @@ export async function PATCH(request: Request): Promise<Response> {
         const previousKeys = managedKeys([existingProject.image_key, ...existingImages.map((image) => image.image_key)]);
         const skillIds = parseSkillIds(body.skill_ids);
         const categoryIds = categoryIdsFromBody(body, false);
-        const images = applyManagedImageUrls(env, parseProjectImages(body.images));
+        const images = applyManagedImageUrls(env, parseProjectImages(normalizeManagedImagePayloadUrls(env, body.images)));
         delete body.skill_ids;
         delete body.category_ids;
         delete body.images;
