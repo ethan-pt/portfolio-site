@@ -1,5 +1,5 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { assertAdminMutation } from '@/lib/server/admin';
+import { assertAdminFormMutation } from '@/lib/server/admin';
 import { assertUploadContent, createProjectImageKey, normalizeUploadContentType, publicR2Url } from '@/lib/server/r2';
 import { HttpError } from '@/lib/server/http';
 
@@ -40,7 +40,7 @@ export async function POST(request: Request): Promise<Response> {
     const diagnostics: UploadDiagnostics = { stage: 'auth' };
 
     try {
-        await assertAdminMutation(request, env);
+        await assertAdminFormMutation(request, env);
 
         diagnostics.stage = 'parse_form';
         const formData = await request.formData();

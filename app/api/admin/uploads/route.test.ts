@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { assertAdminMutation } from '@/lib/server/admin';
+import { assertAdminFormMutation } from '@/lib/server/admin';
 import { POST } from './route';
 
 vi.mock('@opennextjs/cloudflare', () => ({
@@ -8,7 +8,7 @@ vi.mock('@opennextjs/cloudflare', () => ({
 }));
 
 vi.mock('@/lib/server/admin', () => ({
-    assertAdminMutation: vi.fn(),
+    assertAdminFormMutation: vi.fn(),
 }));
 
 const bucket = {
@@ -41,7 +41,7 @@ describe('Admin uploads API route', () => {
         vi.clearAllMocks();
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
         (getCloudflareContext as Mock).mockReturnValue({ env });
-        (assertAdminMutation as Mock).mockResolvedValue(undefined);
+        (assertAdminFormMutation as Mock).mockResolvedValue(undefined);
         bucket.put.mockResolvedValue(undefined);
     });
 
