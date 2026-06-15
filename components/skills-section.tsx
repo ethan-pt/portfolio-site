@@ -99,7 +99,7 @@ export function SkillsSection({ skills, projectReferences, onProjectCountClick }
                     return (
                       <section key={skill.id} className="rounded-md border border-[#B4A5A5]/15 bg-[#151515]/80 p-4">
                         <div className="flex items-start gap-3">
-                          <SkillIcon name={skill.name} icon={skill.icon} />
+                          <SkillIcon name={skill.name} iconUrl={skill.icon_url} />
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3 className="truncate text-base font-semibold text-white" style={{ cursor: "default" }}>

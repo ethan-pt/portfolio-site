@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AdminProjectDto, AdminUserDto, CategoryDto, SkillDto, SkillIconCandidateDto } from '@/types/api';
+import type { AdminProjectDto, AdminUserDto, CategoryDto, SkillDto } from '@/types/api';
 import { SkillIcon } from '@/components/skill-icon';
 
 type ApiErrorBody = { error?: string; message?: string };
@@ -30,7 +30,7 @@ type ProjectForm = {
 type SkillForm = {
     id: number | null;
     name: string;
-    iconSlug: string | null;
+    iconUrl: string;
     selectedCategoryIds: number[];
     featured: boolean;
 };
@@ -45,6 +45,9 @@ type UploadState = {
     message: string;
     progress: number;
 };
+
+type IconPreviewStatus = 'empty' | 'loading' | 'loaded' | 'failed';
+type IconPreviewState = { url: string; status: IconPreviewStatus };
 
 const emptyProjectForm: ProjectForm = {
     id: null,
@@ -63,7 +66,7 @@ const emptyProjectForm: ProjectForm = {
 const emptySkillForm: SkillForm = {
     id: null,
     name: '',
-    iconSlug: null,
+    iconUrl: '',
     selectedCategoryIds: [],
     featured: false,
 };
@@ -115,7 +118,7 @@ function skillToForm(skill: SkillDto): SkillForm {
     return {
         id: skill.id,
         name: skill.name,
-        iconSlug: skill.icon_slug ?? null,
+        iconUrl: skill.icon_url ?? '',
         selectedCategoryIds: skill.categories.map((category) => category.id),
         featured: skill.featured,
     };
@@ -212,9 +215,8 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
     const [projectErrors, setProjectErrors] = useState<Record<string, string>>({});
     const [skillErrors, setSkillErrors] = useState<Record<string, string>>({});
     const [categoryErrors, setCategoryErrors] = useState<Record<string, string>>({});
-    const [skillIconCandidates, setSkillIconCandidates] = useState<SkillIconCandidateDto[]>([]);
-    const [skillIconLoading, setSkillIconLoading] = useState(false);
     const [uploadState, setUploadState] = useState<UploadState>({ status: 'idle', message: '', progress: 0 });
+    const [skillIconPreview, setSkillIconPreview] = useState<IconPreviewState>({ url: '', status: 'empty' });
     const projectEditorRef = useRef<HTMLDivElement>(null);
     const skillEditorRef = useRef<HTMLDivElement>(null);
     const categoryEditorRef = useRef<HTMLDivElement>(null);
@@ -227,17 +229,15 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
     const projectImage = selectedProjectImage(projects, projectForm);
     const projectBusy = savingProject || savingOrder || deletingProjectId !== null;
     const uploadBusy = uploadState.status === 'signing' || uploadState.status === 'uploading' || uploadState.status === 'finalizing';
-    const selectedSkillIcon = skillIconCandidates.find((candidate) => candidate.slug === skillForm.iconSlug) ?? skills.find((skill) => skill.id === skillForm.id)?.icon ?? null;
-    const hasIconCandidates = skillIconCandidates.length > 0;
-    const iconStatus = skillIconLoading
-        ? 'Searching icons'
-        : skillForm.iconSlug && selectedSkillIcon
-            ? `Selected: ${selectedSkillIcon.title}`
-            : skillForm.iconSlug
-                ? 'Saved icon slug is missing from Simple Icons'
-                : hasIconCandidates
-                    ? skillIconCandidates.length === 1 ? 'One icon match found' : 'Multiple icon matches found'
-                    : skillForm.name.trim() ? 'No icon found; initials fallback will be used' : 'Enter a name to search icons';
+    const skillIconUrl = skillForm.iconUrl.trim();
+    const skillIconPreviewStatus: IconPreviewStatus = skillIconPreview.url === skillIconUrl ? skillIconPreview.status : skillIconUrl ? 'loading' : 'empty';
+    const skillIconPreviewText = skillIconPreviewStatus === 'loaded'
+        ? 'Icon URL loaded'
+        : skillIconPreviewStatus === 'failed'
+            ? 'Icon URL could not load; initials fallback shown'
+            : skillIconPreviewStatus === 'loading'
+                ? 'Checking icon URL'
+                : 'Initials fallback';
 
     async function refreshData() {
         setError(null);
@@ -279,48 +279,6 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
         };
     }, []);
 
-    useEffect(() => {
-        const query = skillForm.name.trim();
-        if (!query) {
-            const timeoutId = window.setTimeout(() => {
-                setSkillIconCandidates([]);
-                setSkillIconLoading(false);
-            }, 0);
-            return () => window.clearTimeout(timeoutId);
-        }
-
-        let cancelled = false;
-        const timeoutId = window.setTimeout(async () => {
-            setSkillIconLoading(true);
-            try {
-                const candidates = await jsonRequest<SkillIconCandidateDto[]>(`/api/admin/skill-icons?query=${encodeURIComponent(query)}`);
-                if (cancelled) return;
-
-                setSkillIconCandidates(candidates);
-                setSkillForm((current) => {
-                    if (current.name.trim() !== query || current.iconSlug || current.id !== null || candidates.length !== 1) {
-                        return current;
-                    }
-
-                    return { ...current, iconSlug: candidates[0].slug };
-                });
-            } catch {
-                if (!cancelled) {
-                    setSkillIconCandidates([]);
-                }
-            } finally {
-                if (!cancelled) {
-                    setSkillIconLoading(false);
-                }
-            }
-        }, 250);
-
-        return () => {
-            cancelled = true;
-            window.clearTimeout(timeoutId);
-        };
-    }, [skillForm.id, skillForm.iconSlug, skillForm.name]);
-
     function validateProject(): Record<string, string> {
         const errors: Record<string, string> = {};
 
@@ -340,6 +298,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
     function validateSkill(): Record<string, string> {
         const errors: Record<string, string> = {};
         if (!skillForm.name.trim()) errors.name = 'Name is required';
+        if (skillIconUrl && !isValidHttpUrl(skillIconUrl)) errors.iconUrl = 'Use a valid http or https icon URL';
         if (skillForm.selectedCategoryIds.length === 0) errors.categories = 'At least one category is required';
         return errors;
     }
@@ -553,7 +512,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                     ...(isEditing ? { id: skillForm.id } : {}),
                     name: skillForm.name.trim(),
                     category_ids: skillForm.selectedCategoryIds,
-                    icon_slug: skillForm.iconSlug,
+                    icon_url: skillIconUrl || null,
                     featured: skillForm.featured,
                 }),
             });
@@ -848,7 +807,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                 <section className={`${panelClass} rounded-md`}>
                     <div className="flex items-center justify-between border-b border-[#B4A5A5]/15 px-4 py-3">
                         <h2 className="text-base font-semibold">Skills</h2>
-                        <button className={buttonClass} type="button" onClick={() => { setSkillForm(emptySkillForm); setSkillIconCandidates([]); setSkillErrors({}); focusSkillEditor(); }}>New skill</button>
+                        <button className={buttonClass} type="button" onClick={() => { setSkillForm(emptySkillForm); setSkillErrors({}); focusSkillEditor(); }}>New skill</button>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[680px] text-left text-sm">
@@ -857,10 +816,10 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                                 {loading ? <tr><td className="px-4 py-8 text-[#B4A5A5]" colSpan={5}>Loading skills...</td></tr> : skills.length === 0 ? <tr><td className="px-4 py-8 text-[#B4A5A5]" colSpan={5}>No skills yet.</td></tr> : skills.map((skill) => (
                                     <tr key={skill.id} className="border-b border-[#B4A5A5]/10">
                                         <td className="px-4 py-3 font-medium">{skill.name}</td>
-                                        <td className="px-4 py-3 text-[#d8d0d0]"><div className="flex items-center gap-2"><SkillIcon name={skill.name} icon={skill.icon} className="h-7 w-7" /><span>{skill.icon ? skill.icon.title : skill.icon_slug ? 'Missing icon' : 'Initials fallback'}</span></div></td>
+                                        <td className="px-4 py-3 text-[#d8d0d0]"><div className="flex items-center gap-2"><SkillIcon name={skill.name} iconUrl={skill.icon_url} className="h-7 w-7" /><span>{skill.icon_url ? 'Icon URL configured' : 'Initials fallback'}</span></div></td>
                                         <td className="px-4 py-3 text-[#d8d0d0]">{categoryNames(skill.categories)}</td>
                                         <td className="px-4 py-3 text-[#d8d0d0]">{skill.featured ? 'Yes' : 'No'}</td>
-                                        <td className="px-4 py-3"><div className="flex gap-2"><button className={buttonClass} type="button" onClick={() => { setSkillForm(skillToForm(skill)); setSkillIconCandidates(skill.icon ? [skill.icon] : []); setSkillErrors({}); focusSkillEditor(); }}>Edit</button><button className={dangerButtonClass} type="button" disabled={deletingSkillId === skill.id} onClick={() => deleteSkillRow(skill)}>{deletingSkillId === skill.id ? 'Deleting' : 'Delete'}</button></div></td>
+                                        <td className="px-4 py-3"><div className="flex gap-2"><button className={buttonClass} type="button" onClick={() => { setSkillForm(skillToForm(skill)); setSkillErrors({}); focusSkillEditor(); }}>Edit</button><button className={dangerButtonClass} type="button" disabled={deletingSkillId === skill.id} onClick={() => deleteSkillRow(skill)}>{deletingSkillId === skill.id ? 'Deleting' : 'Delete'}</button></div></td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -873,24 +832,14 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                     <div className="mt-4 grid gap-3">
                         <label className="grid gap-1 text-sm">Name<input className={inputClass} value={skillForm.name} onChange={(event) => setSkillForm({ ...skillForm, name: event.target.value })} /></label>
                         {skillErrors.name ? <p className="text-sm text-red-200">{skillErrors.name}</p> : null}
-                        <fieldset className="grid gap-2 text-sm">
-                            <legend>Icon</legend>
-                            <p className={`text-sm ${skillForm.iconSlug && !selectedSkillIcon ? 'text-red-200' : 'text-[#B4A5A5]'}`}>{iconStatus}</p>
-                            <div className="grid gap-2 rounded-md border border-[#B4A5A5]/15 p-2 sm:grid-cols-2">
-                                <label className="flex cursor-pointer items-center gap-3 rounded px-2 py-2 text-sm text-[#eee8e8] transition hover:bg-[#301B3F]/70">
-                                    <input type="radio" name="skill-icon" checked={skillForm.iconSlug === null} onChange={() => setSkillForm({ ...skillForm, iconSlug: null })} />
-                                    <SkillIcon name={skillForm.name || 'Skill'} icon={null} className="h-7 w-7" />
-                                    <span>Use initials fallback</span>
-                                </label>
-                                {skillIconCandidates.map((candidate) => (
-                                    <label key={candidate.slug} className="flex cursor-pointer items-center gap-3 rounded px-2 py-2 text-sm text-[#eee8e8] transition hover:bg-[#301B3F]/70">
-                                        <input type="radio" name="skill-icon" checked={skillForm.iconSlug === candidate.slug} onChange={() => setSkillForm({ ...skillForm, iconSlug: candidate.slug })} />
-                                        <SkillIcon name={candidate.title} icon={candidate} className="h-7 w-7" />
-                                        <span>{candidate.title} <span className="text-[#B4A5A5]">({candidate.slug})</span></span>
-                                    </label>
-                                ))}
+                        <div className="grid gap-2 text-sm">
+                            <label className="grid gap-1">Icon URL<input className={inputClass} value={skillForm.iconUrl} onChange={(event) => setSkillForm({ ...skillForm, iconUrl: event.target.value })} placeholder="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/..." /></label>
+                            {skillErrors.iconUrl ? <p className="text-sm text-red-200">{skillErrors.iconUrl}</p> : null}
+                            <div className="flex items-center gap-3 rounded-md border border-[#B4A5A5]/15 bg-[#1f1f23] p-3 text-sm text-[#B4A5A5]">
+                                <SkillIcon name={skillForm.name || 'Skill'} iconUrl={skillIconUrl || null} className="h-7 w-7" onImageLoad={() => setSkillIconPreview({ url: skillIconUrl, status: 'loaded' })} onImageError={() => setSkillIconPreview({ url: skillIconUrl, status: 'failed' })} />
+                                <span>{skillIconPreviewText}</span>
                             </div>
-                        </fieldset>
+                        </div>
                         <fieldset className="grid gap-2 text-sm">
                             <legend>Categories</legend>
                             <div className="grid max-h-40 gap-2 overflow-auto rounded-md border border-[#B4A5A5]/15 p-2 sm:grid-cols-2">
@@ -906,7 +855,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={skillForm.featured} onChange={(event) => setSkillForm({ ...skillForm, featured: event.target.checked })} /> Featured</label>
                         <div className="flex flex-wrap gap-2 border-t border-[#B4A5A5]/15 pt-3">
                             <button className={buttonClass} type="button" disabled={savingSkill} onClick={saveSkill}>{savingSkill ? 'Saving' : 'Save skill'}</button>
-                            <button className={buttonClass} type="button" onClick={() => { setSkillForm(emptySkillForm); setSkillIconCandidates([]); setSkillErrors({}); }}>Reset</button>
+                            <button className={buttonClass} type="button" onClick={() => { setSkillForm(emptySkillForm); setSkillErrors({}); }}>Reset</button>
                         </div>
                     </div>
                 </section>

@@ -1,9 +1,13 @@
-import type { SkillIconDto } from '@/types/api';
+"use client";
+
+import { useState } from 'react';
 
 type SkillIconProps = {
   name: string;
-  icon?: SkillIconDto | null;
+  iconUrl?: string | null;
   className?: string;
+  onImageError?: () => void;
+  onImageLoad?: () => void;
 };
 
 function initials(name: string): string {
@@ -13,19 +17,20 @@ function initials(name: string): string {
   return parts.slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 }
 
-export function SkillIcon({ name, icon, className = '' }: SkillIconProps) {
-  const label = icon ? icon.title : name;
+export function SkillIcon({ name, iconUrl, className = '', onImageError, onImageLoad }: SkillIconProps) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const effectiveIconUrl = iconUrl && failedSrc !== iconUrl ? iconUrl : null;
+  const label = effectiveIconUrl ? `${name} icon` : name;
 
   return (
     <span
       className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#B4A5A5]/20 bg-[#B4A5A5]/10 text-xs font-bold text-white ${className}`}
-      title={icon ? icon.title : 'Initials fallback'}
+      title={effectiveIconUrl ? `${name} icon` : 'Initials fallback'}
       aria-label={label}
     >
-      {icon ? (
-        <svg viewBox="0 0 24 24" className="h-4 w-4" role="img" aria-hidden="true" fill={`#${icon.hex}`}>
-          <path d={icon.path} />
-        </svg>
+      {effectiveIconUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- Skill icon URLs are manually curated external assets.
+        <img src={effectiveIconUrl} alt="" className="h-4 w-4 object-contain" onLoad={onImageLoad} onError={() => { setFailedSrc(effectiveIconUrl); onImageError?.(); }} />
       ) : (
         <span aria-hidden="true">{initials(name)}</span>
       )}
