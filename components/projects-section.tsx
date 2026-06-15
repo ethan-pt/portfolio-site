@@ -100,18 +100,24 @@ export function ProjectsSection({ projects, selectedSkillIds: controlledSkillIds
         </div>
         {projects.length > 0 ? (
           <>
-            <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              <FilterDropdown label="Skills" options={skillOptions} selectedIds={selectedSkillIds} onChange={setSelectedSkillIds} />
-              <FilterDropdown label="Categories" options={categoryOptions} selectedIds={selectedCategoryIds} onChange={setSelectedCategoryIds} />
-              {filtersActive ? (
-                <button
-                  type="button"
-                  className="min-h-11 rounded-md border border-[#B4A5A5]/25 px-4 py-2.5 text-sm font-semibold text-[#f6f2f2] transition hover:border-[#B4A5A5]/65 hover:bg-[#B4A5A5]/10"
-                  onClick={resetFilters}
-                >
-                  Reset project filters
-                </button>
-              ) : null}
+            <div className="mb-7 rounded-md border border-[#B4A5A5]/10 bg-[#151515]/20 px-4 py-3">
+              <div className="mb-3">
+                <p className="text-xs font-bold tracking-[0.18em] text-[#B4A5A5] uppercase">Filter by</p>
+                <p className="mt-1 text-sm text-[#d8d0d0]">Narrow projects by matching skills and categories.</p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <FilterDropdown label="Skills" options={skillOptions} selectedIds={selectedSkillIds} onChange={setSelectedSkillIds} />
+                <FilterDropdown label="Categories" options={categoryOptions} selectedIds={selectedCategoryIds} onChange={setSelectedCategoryIds} />
+                {filtersActive ? (
+                  <button
+                    type="button"
+                    className="min-h-11 rounded-md border border-[#B4A5A5]/25 px-4 py-2.5 text-sm font-semibold text-[#f6f2f2] transition hover:border-[#B4A5A5]/65 hover:bg-[#B4A5A5]/10"
+                    onClick={resetFilters}
+                  >
+                    Reset project filters
+                  </button>
+                ) : null}
+              </div>
             </div>
             {visibleProjects.length > 0 ? (
               <>

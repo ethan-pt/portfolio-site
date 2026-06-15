@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ProjectDto, ProjectImageDto } from "@/types/api";
+import { CategoryRail } from "./category-rail";
 
 type ProjectCardProps = {
   project: ProjectDto;
@@ -86,14 +87,10 @@ export function ProjectCard({ project, isOpen, onToggleOpen }: ProjectCardProps)
         {activeImage ? <ProjectImage image={activeImage} /> : <ProjectPlaceholder title={project.title} />}
       </div>
       <div className="flex flex-col p-6 md:p-8">
-        <div className="flex flex-wrap items-center gap-3">
-          {project.categories.map((category) => (
-            <span key={category.id} className="rounded-full border border-[#B4A5A5]/20 px-3 py-1 text-xs font-semibold tracking-[0.14em] text-[#B4A5A5] uppercase">
-              {category.name}
-            </span>
-          ))}
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
+          <CategoryRail categories={project.categories} expanded={isOpen} className="min-w-0 flex-1" />
           {project.featured ? (
-            <span className="rounded-full bg-[#B4A5A5] px-3 py-1 text-xs font-bold tracking-[0.14em] text-[#151515] uppercase">
+            <span className="w-fit shrink-0 rounded-full bg-[#B4A5A5] px-3 py-1 text-xs font-bold tracking-[0.14em] text-[#151515] uppercase">
               Featured
             </span>
           ) : null}

@@ -37,12 +37,14 @@ describe("SkillsSection", () => {
     render(<SkillsSection skills={skills} projectReferences={projectReferences} />);
 
     expect(skillHeadings()).toEqual(["Google Cloud Platform (GCP)"]);
+    expect(screen.getByTestId("category-rail").getAttribute("data-layout")).toBe("compact");
     const projectLink = screen.getByRole("link", { name: "Used in 1 project" });
     expect(projectLink.getAttribute("href")).toBe("#projects");
     expect(projectLink.getAttribute("title")).toBe("Dashboard");
 
     fireEvent.click(screen.getByRole("button", { name: "More skills" }));
     expect(skillHeadings()).toEqual(["Google Cloud Platform (GCP)", "TypeScript", "D1", "Zod"]);
+    expect(screen.getAllByTestId("category-rail").every((rail) => rail.getAttribute("data-layout") === "compact")).toBe(true);
     expect(screen.getByRole("link", { name: "Used in 3 projects" }).getAttribute("title")).toBe("Dashboard, API, Tool");
 
     fireEvent.click(screen.getByRole("button", { name: "Less skills" }));

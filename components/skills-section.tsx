@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { SkillDto } from "@/types/api";
+import { CategoryRail } from "./category-rail";
 import { FilterDropdown, type FilterOption } from "./filter-dropdown";
 import { SkillIcon } from "./skill-icon";
 
@@ -76,17 +77,23 @@ export function SkillsSection({ skills, projectReferences, onProjectCountClick }
         </div>
         {skills.length > 0 ? (
           <>
-            <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              <FilterDropdown label="Categories" options={categoryOptions} selectedIds={selectedCategoryIds} onChange={setSelectedCategoryIds} />
-              {filtersActive ? (
-                <button
-                  type="button"
-                  className="min-h-11 rounded-md border border-[#B4A5A5]/25 px-4 py-2.5 text-sm font-semibold text-[#f6f2f2] transition hover:border-[#B4A5A5]/65 hover:bg-[#B4A5A5]/10"
-                  onClick={resetFilters}
-                >
-                  Reset skill filters
-                </button>
-              ) : null}
+            <div className="mb-7 rounded-md border border-[#B4A5A5]/10 bg-[#151515]/20 px-4 py-3">
+              <div className="mb-3">
+                <p className="text-xs font-bold tracking-[0.18em] text-[#B4A5A5] uppercase">Filter by</p>
+                <p className="mt-1 text-sm text-[#d8d0d0]">Narrow skills by category.</p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <FilterDropdown label="Categories" options={categoryOptions} selectedIds={selectedCategoryIds} onChange={setSelectedCategoryIds} />
+                {filtersActive ? (
+                  <button
+                    type="button"
+                    className="min-h-11 rounded-md border border-[#B4A5A5]/25 px-4 py-2.5 text-sm font-semibold text-[#f6f2f2] transition hover:border-[#B4A5A5]/65 hover:bg-[#B4A5A5]/10"
+                    onClick={resetFilters}
+                  >
+                    Reset skill filters
+                  </button>
+                ) : null}
+              </div>
             </div>
             {visibleSkills.length > 0 ? (
               <>
@@ -123,15 +130,7 @@ export function SkillsSection({ skills, projectReferences, onProjectCountClick }
                             ) : null}
                           </div>
                         </div>
-                        {skill.categories.length > 0 ? (
-                          <div className="mt-4 flex flex-wrap gap-1.5">
-                            {skill.categories.map((category) => (
-                              <span key={category.id} className="rounded-full border border-[#B4A5A5]/20 px-2 py-1 text-xs font-semibold text-[#f6f2f2]">
-                                {category.name}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
+                        <CategoryRail categories={skill.categories} size="sm" className="mt-4 gap-1.5" />
                       </section>
                     );
                   })}

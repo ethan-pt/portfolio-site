@@ -5,17 +5,23 @@ import type { ProjectDto } from "@/types/api";
 
 const frontend = { id: 10, name: "Frontend" };
 const backend = { id: 11, name: "Backend" };
-const react = { id: 20, name: "React", categories: [frontend], featured: true };
-const typescript = { id: 21, name: "TypeScript", categories: [frontend], featured: false };
-const d1 = { id: 22, name: "D1", categories: [backend], featured: false };
+const react = { id: 20, name: "React", icon_url: null, categories: [frontend], featured: true };
+const typescript = { id: 21, name: "TypeScript", icon_url: null, categories: [frontend], featured: false };
+const d1 = { id: 22, name: "D1", icon_url: null, categories: [backend], featured: false };
 
 const projects: ProjectDto[] = [
   {
     id: 1,
     title: "Dashboard",
     description: "A dashboard",
+    summary_description: "A dashboard",
+    full_description: "A dashboard with more implementation detail.",
     image_url: null,
+    thumbnail_image: null,
+    images: [],
     link: "#",
+    github_url: "#",
+    live_url: null,
     categories: [frontend],
     featured: true,
     order_index: 1,
@@ -25,8 +31,14 @@ const projects: ProjectDto[] = [
     id: 2,
     title: "Worker API",
     description: "An API",
+    summary_description: "An API",
+    full_description: "An API",
     image_url: null,
+    thumbnail_image: null,
+    images: [],
     link: "#",
+    github_url: "#",
+    live_url: null,
     categories: [backend],
     featured: false,
     order_index: null,
@@ -36,8 +48,14 @@ const projects: ProjectDto[] = [
     id: 3,
     title: "Full Stack Tool",
     description: "A tool",
+    summary_description: "A tool",
+    full_description: "A tool",
     image_url: null,
+    thumbnail_image: null,
+    images: [],
     link: "#",
+    github_url: "#",
+    live_url: null,
     categories: [frontend, backend],
     featured: false,
     order_index: null,
@@ -56,6 +74,13 @@ describe("ProjectsSection", () => {
     render(<ProjectsSection projects={projects} />);
 
     expect(projectHeadings()).toEqual(["Dashboard"]);
+    expect(screen.getByTestId("category-rail").getAttribute("data-layout")).toBe("compact");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    expect(screen.getByTestId("category-rail").getAttribute("data-layout")).toBe("expanded");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show less" }));
+    expect(screen.getByTestId("category-rail").getAttribute("data-layout")).toBe("compact");
 
     fireEvent.click(screen.getByRole("button", { name: "More projects" }));
     expect(projectHeadings()).toEqual(["Dashboard", "Worker API", "Full Stack Tool"]);
