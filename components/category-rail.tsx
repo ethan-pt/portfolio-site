@@ -22,7 +22,13 @@ export function CategoryRail({ categories, expanded = false, size = "md", classN
     }
 
     function updateCanNavigate() {
-      setCanNavigate(rail.scrollWidth > rail.clientWidth);
+      const currentRail = railRef.current;
+      if (!currentRail) {
+        setCanNavigate(false);
+        return;
+      }
+
+      setCanNavigate(currentRail.scrollWidth > currentRail.clientWidth);
     }
 
     updateCanNavigate();
