@@ -101,7 +101,6 @@ export function ProjectsSection({ projects, selectedSkillIds: controlledSkillIds
             <div className="mb-7 rounded-md border border-[#B4A5A5]/10 bg-[#151515]/20 px-4 py-3">
               <div className="mb-3">
                 <p className="text-xs font-bold tracking-[0.18em] text-[#B4A5A5] uppercase">Filter by</p>
-                <p className="mt-1 text-sm text-[#d8d0d0]">Narrow projects by matching skills and categories.</p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                 <FilterDropdown label="Skills" options={skillOptions} selectedIds={selectedSkillIds} onChange={setSelectedSkillIds} />
