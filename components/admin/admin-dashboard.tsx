@@ -356,30 +356,24 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
 
     async function uploadImage(file: File) {
         setProjectErrors({});
-        setUploadState({ status: 'signing', message: 'Requesting upload URL', progress: 15 });
+        setUploadState({ status: 'signing', message: 'Preparing image upload', progress: 15 });
 
         try {
-            const signed = await jsonRequest<{ uploadUrl: string; key: string; publicUrl: string; headers: Record<string, string> }>('/api/admin/uploads/sign', {
-                method: 'POST',
-                body: JSON.stringify({ contentType: file.type, size: file.size }),
-            });
+            const formData = new FormData();
+            formData.set('file', file);
 
             setUploadState({ status: 'uploading', message: 'Uploading image', progress: 50 });
-            const uploadResponse = await fetch(signed.uploadUrl, {
-                method: 'PUT',
-                headers: signed.headers,
-                body: file,
+            const uploadResponse = await fetch('/api/admin/uploads', {
+                method: 'POST',
+                body: formData,
             });
 
             if (!uploadResponse.ok) {
-                throw new Error('R2 upload failed. Check bucket CORS for this admin origin.');
+                throw new Error(await readApiError(uploadResponse, 'Image upload failed'));
             }
 
             setUploadState({ status: 'finalizing', message: 'Finalizing upload', progress: 85 });
-            const finalized = await jsonRequest<{ key: string; publicUrl: string }>('/api/admin/uploads/finalize', {
-                method: 'POST',
-                body: JSON.stringify({ key: signed.key }),
-            });
+            const finalized = await uploadResponse.json() as { key: string; publicUrl: string };
 
             setProjectForm((current) => {
                 const nextImages = normalizedProjectImages([
