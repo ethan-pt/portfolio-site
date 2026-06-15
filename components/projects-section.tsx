@@ -88,12 +88,10 @@ export function ProjectsSection({ projects, selectedSkillIds: controlledSkillIds
   return (
     <section id="projects" className="scroll-mt-24 px-5 py-20 md:px-8">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <p className="text-sm font-semibold tracking-[0.22em] text-[#B4A5A5] uppercase">Projects</p>
-            <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">Selected work</h2>
-          </div>
-          <p className="max-w-xl text-base leading-7 text-[#f0ebeb]">
+        <div className="mb-10 max-w-3xl">
+          <p className="text-sm font-semibold tracking-[0.22em] text-[#B4A5A5] uppercase">Projects</p>
+          <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">Selected work</h2>
+          <p className="mt-5 text-base leading-7 text-[#f0ebeb]">
             Projects that show how I work through data, backend behavior, automation, and the
             user-facing pieces needed to make a tool useful.
           </p>

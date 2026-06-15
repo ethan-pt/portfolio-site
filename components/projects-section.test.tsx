@@ -74,12 +74,18 @@ describe("ProjectsSection", () => {
     render(<ProjectsSection projects={projects} />);
 
     expect(projectHeadings()).toEqual(["Dashboard"]);
+    expect(screen.getByText("A dashboard")).toBeTruthy();
+    expect(screen.queryByText("A dashboard with more implementation detail.")).toBeNull();
     expect(screen.getByTestId("category-rail").getAttribute("data-layout")).toBe("compact");
 
     fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    expect(screen.queryByText("A dashboard")).toBeNull();
+    expect(screen.getByText("A dashboard with more implementation detail.")).toBeTruthy();
     expect(screen.getByTestId("category-rail").getAttribute("data-layout")).toBe("expanded");
 
     fireEvent.click(screen.getByRole("button", { name: "Show less" }));
+    expect(screen.getByText("A dashboard")).toBeTruthy();
+    expect(screen.queryByText("A dashboard with more implementation detail.")).toBeNull();
     expect(screen.getByTestId("category-rail").getAttribute("data-layout")).toBe("compact");
 
     fireEvent.click(screen.getByRole("button", { name: "More projects" }));

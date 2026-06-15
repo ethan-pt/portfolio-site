@@ -23,16 +23,20 @@ function hasProjectLink(link: string | null | undefined): link is string {
   return Boolean(link && link.trim() !== "" && link.trim() !== "#");
 }
 
-function ProjectPlaceholder({ title }: { title: string }) {
+function ProjectPlaceholder({ title, isOpen }: { title: string; isOpen: boolean }) {
+  const minHeightClass = isOpen ? "min-h-64" : "min-h-40";
+  const paddingClass = isOpen ? "p-6" : "p-4";
+  const initialsClass = isOpen ? "h-20 w-20 text-2xl" : "h-14 w-14 text-lg";
+
   return (
-    <div className="flex h-full min-h-64 flex-col justify-between bg-[linear-gradient(135deg,#301B3F,#3C415C)] p-6">
+    <div className={`flex h-full ${minHeightClass} flex-col justify-between bg-[linear-gradient(135deg,#301B3F,#3C415C)] ${paddingClass}`}>
       <div className="flex gap-2">
         <span className="h-3 w-3 rounded-full bg-[#B4A5A5]" />
         <span className="h-3 w-3 rounded-full bg-white/45" />
         <span className="h-3 w-3 rounded-full bg-black/35" />
       </div>
       <div>
-        <div className="flex h-20 w-20 items-center justify-center rounded-md border border-white/20 bg-[#151515]/35 text-2xl font-bold text-white">
+        <div className={`flex ${initialsClass} items-center justify-center rounded-md border border-white/20 bg-[#151515]/35 font-bold text-white`}>
           {projectInitials(title)}
         </div>
         <p className="mt-5 max-w-xs text-sm font-semibold tracking-[0.18em] text-white/75 uppercase">
@@ -43,13 +47,14 @@ function ProjectPlaceholder({ title }: { title: string }) {
   );
 }
 
-function ProjectImage({ image }: { image: ProjectImageDto }) {
+function ProjectImage({ image, isOpen }: { image: ProjectImageDto; isOpen: boolean }) {
+  const minHeightClass = isOpen ? "min-h-64" : "min-h-40";
   return (
     // eslint-disable-next-line @next/next/no-img-element -- R2 images run unoptimized on Cloudflare.
     <img
       src={image.image_url}
       alt=""
-      className="h-full min-h-64 w-full object-cover opacity-90 transition group-hover:opacity-100"
+      className={`h-full ${minHeightClass} w-full object-cover opacity-90 transition group-hover:opacity-100`}
     />
   );
 }
@@ -83,8 +88,8 @@ export function ProjectCard({ project, isOpen, onToggleOpen }: ProjectCardProps)
 
   return (
     <article className="group grid overflow-hidden rounded-lg border border-[#B4A5A5]/15 bg-[#151515] shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-[#B4A5A5]/35 md:grid-cols-[0.95fr_1.05fr]">
-      <div className="min-h-64 bg-[#301B3F]">
-        {activeImage ? <ProjectImage image={activeImage} /> : <ProjectPlaceholder title={project.title} />}
+      <div className={`${isOpen ? "min-h-64" : "min-h-40"} bg-[#301B3F]`}>
+        {activeImage ? <ProjectImage image={activeImage} isOpen={isOpen} /> : <ProjectPlaceholder title={project.title} isOpen={isOpen} />}
       </div>
       <div className="flex flex-col p-6 md:p-8">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
@@ -96,8 +101,10 @@ export function ProjectCard({ project, isOpen, onToggleOpen }: ProjectCardProps)
           ) : null}
         </div>
         <h3 className="mt-5 text-2xl font-semibold text-white md:text-3xl">{project.title}</h3>
-        <p className="mt-4 text-base leading-7 text-[#f4eeee]">{projectSummary}</p>
-        {isOpen ? <p className="mt-4 grow text-base leading-7 text-[#d8d0d0]">{projectFullDescription}</p> : <div className="grow" />}
+        <p className={`mt-4 text-base leading-7 ${isOpen ? "grow text-[#d8d0d0]" : "text-[#f4eeee]"}`}>
+          {isOpen ? projectFullDescription : projectSummary}
+        </p>
+        {!isOpen ? <div className="grow" /> : null}
         {isOpen && images.length > 1 ? (
           <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[#B4A5A5]/15 pt-4">
             <button
