@@ -99,26 +99,28 @@ export function SkillsSection({ skills, projectReferences, onProjectCountClick }
                     return (
                       <section key={skill.id} className="rounded-md border border-[#B4A5A5]/15 bg-[#151515]/80 p-4">
                         <div className="flex items-start gap-3">
-                          <SkillIcon name={skill.name} iconUrl={skill.icon_url} />
+                          <SkillIcon name={skill.name} iconUrl={skill.icon_url} className="h-12 w-12 border-[#B4A5A5]/35 bg-[#B4A5A5]/20 [&_img]:h-7 [&_img]:w-7" />
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="truncate text-base font-semibold text-white" style={{ cursor: "default" }}>
+                            <div className="flex flex-wrap items-start gap-2">
+                              <h3 className="min-w-0 flex-1 text-base font-semibold leading-snug text-white" style={{ cursor: "default" }}>
                                 {skill.name}
                               </h3>
                               {skill.featured ? (
-                                <span className="rounded-full bg-[#B4A5A5] px-2 py-0.5 text-[0.65rem] font-bold text-[#151515]">
+                                <span className="shrink-0 whitespace-nowrap rounded-full bg-[#B4A5A5] px-2 py-0.5 text-[0.65rem] font-bold text-[#151515]">
                                   Featured
                                 </span>
                               ) : null}
                             </div>
-                            <a
-                              className="mt-2 inline-block text-sm font-semibold text-[#B4A5A5] underline-offset-4 transition hover:text-white hover:underline"
-                              href="#projects"
-                              title={projectTitle}
-                              onClick={() => onProjectCountClick?.(skill.id)}
-                            >
-                              {reference.count} {projectLabel}
-                            </a>
+                            {reference.count > 0 ? (
+                              <a
+                                className="mt-2 inline-block text-sm font-semibold text-[#B4A5A5] underline-offset-4 transition hover:text-white hover:underline"
+                                href="#projects"
+                                title={projectTitle}
+                                onClick={() => onProjectCountClick?.(skill.id)}
+                              >
+                                Used in {reference.count} {projectLabel}
+                              </a>
+                            ) : null}
                           </div>
                         </div>
                         {skill.categories.length > 0 ? (
