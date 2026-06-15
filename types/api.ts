@@ -3,20 +3,10 @@ export interface CategoryDto {
     name: string;
 }
 
-export interface SkillIconDto {
-    slug: string;
-    title: string;
-    hex: string;
-    path: string;
-}
-
-export type SkillIconCandidateDto = SkillIconDto;
-
 export interface SkillDto {
     id: number;
     name: string;
-    icon_slug: string | null;
-    icon: SkillIconDto | null;
+    icon_url: string | null;
     categories: CategoryDto[];
     featured: boolean;
 }

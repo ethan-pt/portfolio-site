@@ -9,7 +9,6 @@ export interface Project {
     link: string;
     live_url?: string | null;
     category: string;
-    icon_slug?: string | null;
     featured: boolean;
     order_index: number | null;
     created_at: string;
@@ -30,6 +29,7 @@ export interface Skill {
     name: string;
     category: string;
     icon_slug?: string | null;
+    icon_url?: string | null;
     featured: boolean;
     created_at: string;
 }

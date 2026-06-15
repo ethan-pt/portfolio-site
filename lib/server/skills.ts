@@ -1,7 +1,6 @@
 import type { CategoryDto, SkillDto } from '@/types/api';
 import type { Skill } from '@/types/db';
 import { categoryAssignmentStatements, requireCategoriesByIds } from './categories';
-import { getSkillIcon } from './skill-icons';
 
 export class SkillNotFoundError extends Error {
     constructor(message = 'Skill not found') {
@@ -93,8 +92,7 @@ export async function listSkillDtos(db: D1Database): Promise<SkillDto[]> {
     return skills.map((skill) => ({
         id: skill.id,
         name: skill.name,
-        icon_slug: skill.icon_slug ?? null,
-        icon: getSkillIcon(skill.icon_slug),
+        icon_url: skill.icon_url ?? null,
         categories: categoryMap.get(skill.id) ?? [],
         featured: skill.featured,
     }));
@@ -111,7 +109,7 @@ export async function listSkills(db: D1Database): Promise<Skill[]> {
 export async function createSkill(db: D1Database, skillData: Omit<Skill, 'id' | 'created_at'>, categoryIds: number[]): Promise<Skill> {
     const categories = await requireCategoriesByIds(db, categoryIds);
     const { name, featured } = skillData;
-    const iconSlug = skillData.icon_slug ?? null;
+    const iconUrl = skillData.icon_url ?? null;
     const category = categories[0]?.name ?? '';
 
     if (!name || !category || typeof featured !== 'boolean') {
@@ -120,11 +118,11 @@ export async function createSkill(db: D1Database, skillData: Omit<Skill, 'id' | 
 
     const id = createSkillId();
     await batchSkillWrite(db, [
-        db.prepare('INSERT INTO skills (id, name, category, icon_slug, featured) VALUES (?, ?, ?, ?, ?)').bind(id, name, category, iconSlug, featured),
+        db.prepare('INSERT INTO skills (id, name, category, icon_url, featured) VALUES (?, ?, ?, ?, ?)').bind(id, name, category, iconUrl, featured),
         ...categoryAssignmentStatements(db, 'skill_id', 'skill_categories', id, categoryIds),
     ]);
 
-    return { id, name, category, icon_slug: iconSlug, featured, created_at: new Date().toISOString() };
+    return { id, name, category, icon_url: iconUrl, featured, created_at: new Date().toISOString() };
 }
 
 export async function getSkillById(db: D1Database, id: number): Promise<Skill | null> {
@@ -143,7 +141,7 @@ export async function updateSkill(db: D1Database, id: number, skillData: Partial
     const updates: Partial<Omit<Skill, 'id' | 'created_at'>> = {
         name: skillData.name,
         category: categories ? categories[0]?.name : skillData.category,
-        icon_slug: skillData.icon_slug,
+        icon_url: skillData.icon_url,
         featured: skillData.featured,
     };
 
