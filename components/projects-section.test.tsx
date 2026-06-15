@@ -107,7 +107,10 @@ describe("ProjectsSection", () => {
     expect(image?.className).toContain("absolute");
     expect(image?.className).toContain("inset-0");
     expect(image?.parentElement?.className).toContain("relative");
+    expect(image?.parentElement?.className).toContain("self-start");
     expect(image?.parentElement?.className).toContain("overflow-hidden");
+    expect(image?.parentElement?.className).toContain("h-40");
+    expect(image?.parentElement?.className).toContain("min-h-40");
   });
 
   test("requires every selected skill and project category while including non-featured matches", () => {
