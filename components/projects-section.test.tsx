@@ -114,6 +114,15 @@ describe("ProjectsSection", () => {
     expect(image?.parentElement?.className).toContain("overflow-hidden");
     expect(image?.parentElement?.className).toContain("h-40");
     expect(image?.parentElement?.className).toContain("min-h-40");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+
+    const expandedImage = container.querySelector('img');
+    expect(expandedImage?.parentElement?.className).toContain("self-stretch");
+    expect(expandedImage?.parentElement?.className).toContain("h-full");
+    expect(expandedImage?.parentElement?.className).toContain("min-h-64");
+    expect(expandedImage?.parentElement?.className).not.toContain("self-start");
+    expect(expandedImage?.parentElement?.className).not.toContain("h-40");
   });
 
   test("requires every selected skill and project category while including non-featured matches", () => {
