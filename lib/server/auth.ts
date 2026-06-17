@@ -118,20 +118,46 @@ function parseCookies(request: Request): Map<string, string> {
     return cookies;
 }
 
-function secureCookie(name: string, value: string, maxAgeSeconds: number, sameSite: 'Strict' | 'Lax'): string {
-    return `${name}=${value}; Path=/; HttpOnly; Secure; SameSite=${sameSite}; Max-Age=${maxAgeSeconds}`;
+function isLocalHostname(hostname: string): boolean {
+    return hostname === 'localhost'
+        || hostname === '127.0.0.1'
+        || hostname === '::1'
+        || hostname.startsWith('10.')
+        || hostname.startsWith('192.168.')
+        || /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
 }
 
-export function clearCookie(name: string): string {
-    return `${name}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
+function shouldUseSecureCookies(env: AuthEnv): boolean {
+    if (!env.SITE_ORIGIN) {
+        return true;
+    }
+
+    try {
+        const url = new URL(env.SITE_ORIGIN);
+        return url.protocol !== 'http:' || !isLocalHostname(url.hostname);
+    } catch {
+        return true;
+    }
 }
 
-export function oauthStateSetCookie(state: string): string {
-    return secureCookie(oauthStateCookie, state, oauthStateTtlSeconds, 'Lax');
+function cookieSecurityAttribute(env: AuthEnv): string {
+    return shouldUseSecureCookies(env) ? '; Secure' : '';
 }
 
-export function adminSessionSetCookie(jwt: string): string {
-    return secureCookie(adminSessionCookie, jwt, jwtTtlSeconds, 'Strict');
+function secureCookie(name: string, value: string, maxAgeSeconds: number, sameSite: 'Strict' | 'Lax', env: AuthEnv = {}): string {
+    return `${name}=${value}; Path=/; HttpOnly${cookieSecurityAttribute(env)}; SameSite=${sameSite}; Max-Age=${maxAgeSeconds}`;
+}
+
+export function clearCookie(name: string, env: AuthEnv = {}): string {
+    return `${name}=; Path=/; HttpOnly${cookieSecurityAttribute(env)}; SameSite=Strict; Max-Age=0`;
+}
+
+export function oauthStateSetCookie(state: string, env: AuthEnv = {}): string {
+    return secureCookie(oauthStateCookie, state, oauthStateTtlSeconds, 'Lax', env);
+}
+
+export function adminSessionSetCookie(jwt: string, env: AuthEnv = {}): string {
+    return secureCookie(adminSessionCookie, jwt, jwtTtlSeconds, 'Strict', env);
 }
 
 export function getOAuthStateCookie(request: Request): string | null {

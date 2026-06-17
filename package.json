@@ -8,6 +8,8 @@
     "preview": "npm run build:worker && opennextjs-cloudflare preview",
     "deploy": "npm run build:worker && opennextjs-cloudflare deploy",
     "upload": "npm run build:worker && opennextjs-cloudflare upload",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:execute:local": "wrangler d1 execute DB --local",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "lint": "eslint",
     "test": "vitest",

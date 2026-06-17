@@ -17,13 +17,23 @@ function requestWithSession(jwt: string): Request {
 }
 
 describe('admin auth helpers', () => {
-    test('emits Strict secure HttpOnly admin session cookies', () => {
+    test('emits Strict secure HttpOnly admin session cookies by default', () => {
         const cookie = adminSessionSetCookie('jwt-value');
 
         expect(cookie).toContain('portfolio_admin_session=jwt-value');
         expect(cookie).toContain('HttpOnly');
         expect(cookie).toContain('Secure');
         expect(cookie).toContain('SameSite=Strict');
+    });
+
+    test('omits Secure for local HTTP admin cookies', () => {
+        const localIpCookie = adminSessionSetCookie('jwt-value', { SITE_ORIGIN: 'http://10.0.0.182:3001' });
+        const localHostCookie = adminSessionSetCookie('jwt-value', { SITE_ORIGIN: 'http://localhost:3001' });
+        const productionCookie = adminSessionSetCookie('jwt-value', { SITE_ORIGIN: 'https://ethan-pt.dev' });
+
+        expect(localIpCookie).not.toContain('Secure');
+        expect(localHostCookie).not.toContain('Secure');
+        expect(productionCookie).toContain('Secure');
     });
 
     test('signs and verifies admin JWTs with Web Crypto HMAC', async () => {

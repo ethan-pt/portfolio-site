@@ -12,7 +12,7 @@ export async function GET(): Promise<Response> {
             status: 302,
             headers: {
                 Location: githubAuthorizeUrl(env, state),
-                'Set-Cookie': oauthStateSetCookie(state),
+                'Set-Cookie': oauthStateSetCookie(state, env),
             },
         });
     } catch (error) {

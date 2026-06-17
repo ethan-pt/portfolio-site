@@ -36,8 +36,8 @@ export async function GET(request: Request): Promise<Response> {
             status: 302,
             headers: [
                 ['Location', `${env.SITE_ORIGIN ?? new URL(request.url).origin}/admin`],
-                ['Set-Cookie', adminSessionSetCookie(jwt)],
-                ['Set-Cookie', clearCookie('portfolio_oauth_state')],
+                ['Set-Cookie', adminSessionSetCookie(jwt, env)],
+                ['Set-Cookie', clearCookie('portfolio_oauth_state', env)],
             ],
         });
     } catch (error) {
