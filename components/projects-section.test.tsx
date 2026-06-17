@@ -140,6 +140,59 @@ describe("ProjectsSection", () => {
     expect(expandedImage?.closest("article")?.className).toContain("md:grid-cols-[0.95fr_1.05fr]");
   });
 
+  test("navigates project images from overlay controls and mobile swipes", () => {
+    const projectWithImages: ProjectDto = {
+      ...projects[0],
+      thumbnail_image: { id: 101, image_url: "https://cdn.example.com/two.png", image_key: null, is_thumbnail: true, order_index: 1 },
+      images: [
+        { id: 100, image_url: "https://cdn.example.com/one.png", image_key: null, is_thumbnail: false, order_index: 0 },
+        { id: 101, image_url: "https://cdn.example.com/two.png", image_key: null, is_thumbnail: true, order_index: 1 },
+        { id: 102, image_url: "https://cdn.example.com/three.png", image_key: null, is_thumbnail: false, order_index: 2 },
+      ],
+    };
+
+    const { container } = render(<ProjectsSection projects={[projectWithImages]} />);
+    const mediaFrame = container.querySelector('[style*="two.png"]')?.parentElement;
+    const navigation = container.querySelector('[aria-label="Project image navigation"]');
+
+    expect(mediaFrame).toBeTruthy();
+    expect(navigation?.className).toContain("md:hidden");
+    expect(screen.getByRole("button", { name: "Show image 2 of 3" }).getAttribute("aria-current")).toBe("true");
+    expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+    expect(screen.queryByText("2 / 3")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next project image" }));
+    expect(container.querySelector('[style*="three.png"]')).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Show image 3 of 3" }).getAttribute("aria-current")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Next project image" }));
+    expect(container.querySelector('[style*="one.png"]')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous project image" }));
+    expect(container.querySelector('[style*="three.png"]')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show image 2 of 3" }));
+    expect(container.querySelector('[style*="two.png"]')).toBeTruthy();
+
+    const currentMediaFrame = container.querySelector('[style*="two.png"]')?.parentElement;
+    expect(currentMediaFrame).toBeTruthy();
+    fireEvent.touchStart(currentMediaFrame as Element, { touches: [{ clientX: 180, clientY: 20 }] });
+    fireEvent.touchEnd(currentMediaFrame as Element, { changedTouches: [{ clientX: 90, clientY: 28 }] });
+    expect(container.querySelector('[style*="three.png"]')).toBeTruthy();
+
+    fireEvent.touchStart(currentMediaFrame as Element, { touches: [{ clientX: 90, clientY: 20 }] });
+    fireEvent.touchEnd(currentMediaFrame as Element, { changedTouches: [{ clientX: 170, clientY: 26 }] });
+    expect(container.querySelector('[style*="two.png"]')).toBeTruthy();
+
+    fireEvent.touchStart(currentMediaFrame as Element, { touches: [{ clientX: 180, clientY: 20 }] });
+    fireEvent.touchEnd(currentMediaFrame as Element, { changedTouches: [{ clientX: 150, clientY: 24 }] });
+    expect(container.querySelector('[style*="two.png"]')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    expect(container.querySelector('[aria-label="Project image navigation"]')?.className).toContain("md:flex");
+  });
+
   test("requires every selected skill and project category while including non-featured matches", () => {
     render(<ProjectsSection projects={projects} />);
 

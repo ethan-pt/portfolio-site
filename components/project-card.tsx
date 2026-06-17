@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type TouchEvent } from "react";
 import type { ProjectDto, ProjectImageDto } from "@/types/api";
 import { CategoryRail } from "./category-rail";
 
@@ -9,6 +9,8 @@ type ProjectCardProps = {
   isOpen: boolean;
   onToggleOpen: () => void;
 };
+
+const IMAGE_SWIPE_THRESHOLD = 48;
 
 function projectInitials(title: string): string {
   return title
@@ -62,30 +64,75 @@ function ProjectImage({ image }: { image: ProjectImageDto }) {
 }
 
 export function ProjectCard({ project, isOpen, onToggleOpen }: ProjectCardProps) {
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const projectImages = project.images ?? [];
   const projectSummary = project.summary_description ?? project.description;
   const projectFullDescription = project.full_description ?? project.description;
   const images = projectImages.length > 0 ? projectImages : project.thumbnail_image ? [project.thumbnail_image] : [];
   const thumbnail = project.thumbnail_image ?? images[0] ?? null;
-  const activeImage = isOpen ? images[activeImageIndex] ?? thumbnail : thumbnail;
+  const thumbnailImageIndex = thumbnail ? images.findIndex((image) => image.id === thumbnail.id) : -1;
+  const initialImageIndex = thumbnailImageIndex >= 0 ? thumbnailImageIndex : 0;
+  const [activeImageIndex, setActiveImageIndex] = useState(initialImageIndex);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const activeImage = images[activeImageIndex] ?? thumbnail ?? images[0] ?? null;
   const projectHasGitHubLink = hasProjectLink(project.github_url || project.link);
   const projectHasLiveLink = hasProjectLink(project.live_url);
   const canShowMore = projectFullDescription.trim() !== projectSummary.trim() || images.length > 1;
+  const canNavigateImages = images.length > 1;
 
   function toggleOpen() {
-    if (!isOpen) {
-      setActiveImageIndex(0);
-    }
     onToggleOpen();
   }
 
   function showPreviousImage() {
-    setActiveImageIndex((index) => (index === 0 ? images.length - 1 : index - 1));
+    setActiveImageIndex((index) => (images.length === 0 ? 0 : index === 0 ? images.length - 1 : index - 1));
   }
 
   function showNextImage() {
-    setActiveImageIndex((index) => (index + 1) % images.length);
+    setActiveImageIndex((index) => (images.length === 0 ? 0 : (index + 1) % images.length));
+  }
+
+  function showImage(index: number) {
+    setActiveImageIndex(index);
+  }
+
+  function handleImageTouchStart(event: TouchEvent<HTMLDivElement>) {
+    if (!canNavigateImages) {
+      return;
+    }
+
+    const touch = event.touches[0];
+    if (!touch) {
+      return;
+    }
+
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleImageTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    const swipeStart = swipeStartRef.current;
+    swipeStartRef.current = null;
+
+    if (!swipeStart || !canNavigateImages) {
+      return;
+    }
+
+    const touch = event.changedTouches[0];
+    if (!touch) {
+      return;
+    }
+
+    const deltaX = touch.clientX - swipeStart.x;
+    const deltaY = touch.clientY - swipeStart.y;
+
+    if (Math.abs(deltaX) < IMAGE_SWIPE_THRESHOLD || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) {
+      return;
+    }
+
+    if (deltaX < 0) {
+      showNextImage();
+    } else {
+      showPreviousImage();
+    }
   }
 
   return (
@@ -96,11 +143,50 @@ export function ProjectCard({ project, isOpen, onToggleOpen }: ProjectCardProps)
       ].join(" ")}
     >
       <div
-        className={`relative flex w-full min-w-0 max-w-full items-center justify-center overflow-hidden ${
+        className={`relative flex w-full min-w-0 max-w-full touch-pan-y items-center justify-center overflow-hidden ${
           isOpen ? "h-full min-h-64 self-stretch" : "h-40 min-h-40 self-start md:h-auto md:self-stretch"
         } bg-[#201926]`}
+        onTouchStart={handleImageTouchStart}
+        onTouchEnd={handleImageTouchEnd}
       >
         {activeImage ? <ProjectImage image={activeImage} /> : <ProjectPlaceholder title={project.title} isOpen={isOpen} />}
+        {canNavigateImages ? (
+          <div
+            className={`absolute inset-0 flex items-center justify-between px-3 ${isOpen ? "md:flex" : "md:hidden"}`}
+            aria-label="Project image navigation"
+          >
+            <button
+              type="button"
+              className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-[#151515]/75 text-xl font-bold text-white shadow-lg shadow-black/30 backdrop-blur transition hover:border-white/55 hover:bg-[#301B3F]/90"
+              onClick={showPreviousImage}
+              aria-label="Previous project image"
+            >
+              <span aria-hidden="true">{"<"}</span>
+            </button>
+            <button
+              type="button"
+              className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-[#151515]/75 text-xl font-bold text-white shadow-lg shadow-black/30 backdrop-blur transition hover:border-white/55 hover:bg-[#301B3F]/90"
+              onClick={showNextImage}
+              aria-label="Next project image"
+            >
+              <span aria-hidden="true">{">"}</span>
+            </button>
+            <div className="pointer-events-auto absolute right-0 bottom-3 left-0 flex justify-center gap-2 px-12">
+              {images.map((image, index) => (
+                <button
+                  key={image.id}
+                  type="button"
+                  className={`h-2.5 w-2.5 rounded-full border border-white/60 transition ${
+                    activeImageIndex === index ? "bg-white" : "bg-white/25 hover:bg-white/60"
+                  }`}
+                  onClick={() => showImage(index)}
+                  aria-label={`Show image ${index + 1} of ${images.length}`}
+                  aria-current={activeImageIndex === index ? "true" : undefined}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
       <div className="flex min-w-0 max-w-full flex-col p-6 md:p-8">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
@@ -116,25 +202,7 @@ export function ProjectCard({ project, isOpen, onToggleOpen }: ProjectCardProps)
           {isOpen ? projectFullDescription : projectSummary}
         </p>
         {!isOpen ? <div className="grow" /> : null}
-        {isOpen && images.length > 1 ? (
-          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[#B4A5A5]/15 pt-4">
-            <button
-              type="button"
-              className="rounded-md border border-[#B4A5A5]/30 px-3 py-2 text-sm font-semibold text-white transition hover:border-[#B4A5A5]/70 hover:bg-[#301B3F]"
-              onClick={showPreviousImage}
-            >
-              Previous
-            </button>
-            <span className="text-sm font-semibold text-[#B4A5A5]">{activeImageIndex + 1} / {images.length}</span>
-            <button
-              type="button"
-              className="rounded-md border border-[#B4A5A5]/30 px-3 py-2 text-sm font-semibold text-white transition hover:border-[#B4A5A5]/70 hover:bg-[#301B3F]"
-              onClick={showNextImage}
-            >
-              Next
-            </button>
-          </div>
-        ) : null}
+
         {project.skills.length > 0 ? (
           <div className="mt-6 flex flex-wrap gap-2">
             {project.skills.map((skill) => (
