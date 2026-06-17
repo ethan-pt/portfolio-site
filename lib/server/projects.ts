@@ -143,20 +143,14 @@ function projectSkillStatements(db: D1Database, projectId: number, skillIds: num
 }
 
 function normalizedImageInputs(images: ProjectImageInput[]): ProjectImageInput[] {
-    if (images.length === 0) {
-        return [];
-    }
-
-    const orderedImages = images
+    return images
         .map((image, index) => ({ ...image, order_index: image.order_index ?? index }))
-        .sort((left, right) => left.order_index - right.order_index);
-    const thumbnailIndex = orderedImages.findIndex((image) => image.is_thumbnail);
-
-    return orderedImages.map((image, index) => ({
-        ...image,
-        is_thumbnail: thumbnailIndex === -1 ? index === 0 : index === thumbnailIndex,
-        order_index: index,
-    }));
+        .sort((left, right) => left.order_index - right.order_index)
+        .map((image, index) => ({
+            ...image,
+            is_thumbnail: index === 0,
+            order_index: index,
+        }));
 }
 
 function imageInputsFromProject(projectData: Pick<Project, 'image_url' | 'image_key'>): ProjectImageInput[] {
@@ -310,18 +304,10 @@ function fallbackProjectImages(project: Project): ProjectImageDto[] {
 
 function effectiveProjectImages(project: Project, images: ProjectImageDto[]): ProjectImageDto[] {
     const sourceImages = images.length > 0 ? images : fallbackProjectImages(project);
-    const sortedImages = [...sourceImages].sort((left, right) => {
-        if (left.is_thumbnail !== right.is_thumbnail) {
-            return left.is_thumbnail ? -1 : 1;
-        }
-        return left.order_index - right.order_index;
-    });
 
-    if (sortedImages.length === 0 || sortedImages.some((image) => image.is_thumbnail)) {
-        return sortedImages;
-    }
-
-    return sortedImages.map((image, index) => ({ ...image, is_thumbnail: index === 0 }));
+    return [...sourceImages]
+        .sort((left, right) => left.order_index - right.order_index)
+        .map((image, index) => ({ ...image, is_thumbnail: index === 0, order_index: index }));
 }
 
 async function listProjectDtoRows(db: D1Database): Promise<AdminProjectDto[]> {

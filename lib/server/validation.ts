@@ -125,8 +125,7 @@ export function parseProjectImages(value: unknown): ProjectImageInput[] | null {
         throw new HttpError(400, 'Invalid images');
     }
 
-    let thumbnailCount = 0;
-    const images = value.map((rawImage, index) => {
+    return value.map((rawImage, index) => {
         if (typeof rawImage !== 'object' || rawImage === null || Array.isArray(rawImage)) {
             throw new HttpError(400, 'Invalid images');
         }
@@ -135,31 +134,13 @@ export function parseProjectImages(value: unknown): ProjectImageInput[] | null {
         const imageUrl = stringField(image, 'image_url');
         validateUrl(imageUrl, 'image_url');
 
-        const imageKey = optionalNullableStringField(image, 'image_key') ?? null;
-        const isThumbnail = 'is_thumbnail' in image ? booleanField(image, 'is_thumbnail') : index === 0;
-        const orderIndex = optionalNullableIntegerField(image, 'order_index') ?? index;
-
-        if (isThumbnail) {
-            thumbnailCount += 1;
-        }
-
         return {
             image_url: imageUrl,
-            image_key: imageKey,
-            is_thumbnail: isThumbnail,
-            order_index: orderIndex,
+            image_key: optionalNullableStringField(image, 'image_key') ?? null,
+            is_thumbnail: index === 0,
+            order_index: optionalNullableIntegerField(image, 'order_index') ?? index,
         };
     });
-
-    if (thumbnailCount > 1) {
-        throw new HttpError(400, 'Only one project image can be the thumbnail');
-    }
-
-    if (images.length > 0 && thumbnailCount === 0) {
-        images[0] = { ...images[0], is_thumbnail: true };
-    }
-
-    return images;
 }
 
 export function idFromBody(body: Record<string, unknown>, label: string): number {

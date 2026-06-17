@@ -180,19 +180,15 @@ async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function normalizedProjectImages(images: ProjectFormImage[]): ProjectFormImage[] {
-    const sortedImages = images.map((image, index) => ({ ...image, order_index: index }));
-    const thumbnailIndex = sortedImages.findIndex((image) => image.is_thumbnail);
-
-    if (sortedImages.length === 0 || thumbnailIndex !== -1) {
-        return sortedImages;
-    }
-
-    return sortedImages.map((image, index) => ({ ...image, is_thumbnail: index === 0 }));
+    return images.map((image, index) => ({
+        ...image,
+        is_thumbnail: index === 0,
+        order_index: index,
+    }));
 }
 
 function selectedProjectImage(_projects: AdminProjectDto[], form: ProjectForm): string | null {
-    const images = normalizedProjectImages(form.images);
-    return images.find((image) => image.is_thumbnail)?.image_url ?? images[0]?.image_url ?? null;
+    return normalizedProjectImages(form.images)[0]?.image_url ?? null;
 }
 
 export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
@@ -383,7 +379,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                     {
                         image_url: finalized.publicUrl,
                         image_key: finalized.key,
-                        is_thumbnail: current.images.length === 0,
+                        is_thumbnail: false,
                         order_index: current.images.length,
                     },
                 ]);
@@ -411,7 +407,7 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
             ...current,
             images: normalizedProjectImages([
                 ...current.images,
-                { image_url: imageUrl, image_key: null, is_thumbnail: current.images.length === 0, order_index: current.images.length },
+                { image_url: imageUrl, image_key: null, is_thumbnail: false, order_index: current.images.length },
             ]),
             externalImageUrl: '',
         }));
@@ -420,10 +416,6 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
 
     function removeProjectImage(index: number) {
         setProjectForm((current) => ({ ...current, images: normalizedProjectImages(current.images.filter((_, currentIndex) => currentIndex !== index)) }));
-    }
-
-    function markProjectThumbnail(index: number) {
-        setProjectForm((current) => ({ ...current, images: current.images.map((image, currentIndex) => ({ ...image, is_thumbnail: currentIndex === index })) }));
     }
 
     function moveProjectImage(index: number, direction: -1 | 1) {
@@ -760,7 +752,13 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
 
                         <fieldset className="grid gap-3 border-t border-[#B4A5A5]/15 pt-3">
                             <legend className="text-sm font-semibold">Images</legend>
-                            <input className={inputClass} type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.currentTarget.value = ''; }} />
+                            <div className="flex flex-wrap items-center gap-3">
+                                <label className={`${buttonClass} inline-flex cursor-pointer items-center justify-center`}>
+                                    Choose image
+                                    <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.currentTarget.value = ''; }} />
+                                </label>
+                                <span className="text-sm text-[#B4A5A5]">JPEG, PNG, WebP, or AVIF</span>
+                            </div>
                             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                                 <label className="grid gap-1 text-sm">External image URL<input className={inputClass} value={projectForm.externalImageUrl} onChange={(event) => setProjectForm({ ...projectForm, externalImageUrl: event.target.value })} /></label>
                                 <button className={`${buttonClass} self-end`} type="button" onClick={addExternalImage}>Add image</button>
@@ -768,22 +766,21 @@ export function AdminDashboard({ initialUser }: { initialUser: AdminUserDto }) {
                             {uploadState.message ? <p className={uploadState.status === 'error' ? 'text-sm text-red-200' : 'text-sm text-[#B4A5A5]'}>{uploadState.message} {uploadState.progress ? `${uploadState.progress}%` : ''}</p> : null}
                             {projectErrors.imageUrl ? <p className="text-sm text-red-200">{projectErrors.imageUrl}</p> : null}
                             {projectImage ? (
-                                // eslint-disable-next-line @next/next/no-img-element -- Admin image previews can be external or runtime R2 assets.
-                                <img className="h-32 w-full rounded-md border border-[#B4A5A5]/15 object-cover" src={projectImage} alt="Project thumbnail preview" />
+                                <div className="flex max-h-96 min-h-40 items-center justify-center overflow-hidden rounded-md border border-[#B4A5A5]/15 bg-[#111113] p-3">
+                                    {/* eslint-disable-next-line @next/next/no-img-element -- Admin image previews can be external or runtime R2 assets. */}
+                                    <img className="max-h-80 w-full object-contain" src={projectImage} alt="Project thumbnail preview" />
+                                </div>
                             ) : null}
                             <div className="grid gap-2">
                                 {projectForm.images.length === 0 ? <p className="text-sm text-[#B4A5A5]">No project images. The public card will use the no-image placeholder.</p> : normalizedProjectImages(projectForm.images).map((image, index) => (
-                                    <div key={`${image.image_url}-${index}`} className="grid gap-3 rounded-md border border-[#B4A5A5]/15 bg-[#1f1f23] p-3 text-sm md:grid-cols-[5rem_1fr_auto] md:items-center">
-                                        {/* eslint-disable-next-line @next/next/no-img-element -- Admin image previews can be external or runtime R2 assets. */}
-                                        <img className="h-16 w-20 rounded-md object-cover" src={image.image_url} alt="" />
-                                        <div className="min-w-0">
-                                            <div className="truncate text-[#eee8e8]">{image.image_url}</div>
-                                            <div className="mt-1 text-[#B4A5A5]">{image.image_key ? 'Managed upload' : 'External URL'}{image.is_thumbnail ? ' · Thumbnail' : ''}</div>
+                                    <div key={`${image.image_url}-${index}`} className="grid gap-3 rounded-md border border-[#B4A5A5]/15 bg-[#1f1f23] p-3 text-sm sm:grid-cols-[8rem_auto] sm:items-center sm:justify-between">
+                                        <div className="flex h-24 w-32 items-center justify-center overflow-hidden rounded-md bg-[#111113]">
+                                            {/* eslint-disable-next-line @next/next/no-img-element -- Admin image previews can be external or runtime R2 assets. */}
+                                            <img className="max-h-24 max-w-32 object-contain" src={image.image_url} alt="" />
                                         </div>
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="flex flex-wrap gap-2 sm:justify-end">
                                             <button className={buttonClass} type="button" disabled={index === 0} onClick={() => moveProjectImage(index, -1)}>Up</button>
                                             <button className={buttonClass} type="button" disabled={index === projectForm.images.length - 1} onClick={() => moveProjectImage(index, 1)}>Down</button>
-                                            <button className={buttonClass} type="button" disabled={image.is_thumbnail} onClick={() => markProjectThumbnail(index)}>Thumbnail</button>
                                             <button className={dangerButtonClass} type="button" onClick={() => removeProjectImage(index)}>Remove</button>
                                         </div>
                                     </div>
