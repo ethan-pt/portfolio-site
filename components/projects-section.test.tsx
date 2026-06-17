@@ -102,27 +102,42 @@ describe("ProjectsSection", () => {
       images: [{ id: 100, image_url: "https://cdn.example.com/project.png", image_key: null, is_thumbnail: true, order_index: 0 }],
     }]} />);
 
-    const image = container.querySelector('img');
+    const image = container.querySelector('[style*="project.png"]');
     expect(image).toBeTruthy();
-    expect(image?.className).toContain("absolute");
-    expect(image?.className).toContain("inset-0");
     expect(image?.className).toContain("h-full");
     expect(image?.className).toContain("w-full");
-    expect(image?.className).toContain("object-contain");
+    expect(image?.className).toContain("min-w-0");
+    expect(image?.className).toContain("max-w-full");
+    expect(image).toHaveProperty("style.backgroundPosition", "center center");
+    expect(image).toHaveProperty("style.backgroundRepeat", "no-repeat");
+    expect(image).toHaveProperty("style.backgroundSize", "contain");
     expect(image?.parentElement?.className).toContain("relative");
+    expect(image?.parentElement?.className).toContain("w-full");
+    expect(image?.parentElement?.className).toContain("min-w-0");
+    expect(image?.parentElement?.className).toContain("max-w-full");
+    expect(image?.parentElement?.className).toContain("flex");
+    expect(image?.parentElement?.className).toContain("items-center");
+    expect(image?.parentElement?.className).toContain("justify-center");
     expect(image?.parentElement?.className).toContain("self-start");
     expect(image?.parentElement?.className).toContain("overflow-hidden");
     expect(image?.parentElement?.className).toContain("h-40");
     expect(image?.parentElement?.className).toContain("min-h-40");
+    expect(image?.parentElement?.className).toContain("md:h-auto");
+    expect(image?.parentElement?.className).toContain("md:self-stretch");
+    expect(image?.closest("article")?.className).toContain("w-full");
+    expect(image?.closest("article")?.className).toContain("min-w-0");
+    expect(image?.closest("article")?.className).toContain("max-w-full");
+    expect(image?.closest("article")?.className).toContain("md:grid-cols-[14rem_1fr]");
 
     fireEvent.click(screen.getByRole("button", { name: "Show more" }));
 
-    const expandedImage = container.querySelector('img');
+    const expandedImage = container.querySelector('[style*="project.png"]');
     expect(expandedImage?.parentElement?.className).toContain("self-stretch");
     expect(expandedImage?.parentElement?.className).toContain("h-full");
     expect(expandedImage?.parentElement?.className).toContain("min-h-64");
     expect(expandedImage?.parentElement?.className).not.toContain("self-start");
     expect(expandedImage?.parentElement?.className).not.toContain("h-40");
+    expect(expandedImage?.closest("article")?.className).toContain("md:grid-cols-[0.95fr_1.05fr]");
   });
 
   test("requires every selected skill and project category while including non-featured matches", () => {

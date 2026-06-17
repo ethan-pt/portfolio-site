@@ -48,11 +48,15 @@ function ProjectPlaceholder({ title, isOpen }: { title: string; isOpen: boolean 
 
 function ProjectImage({ image }: { image: ProjectImageDto }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- R2 images run unoptimized on Cloudflare.
-    <img
-      src={image.image_url}
-      alt=""
-      className="absolute inset-0 h-full w-full object-contain opacity-90 transition group-hover:opacity-100"
+    <div
+      aria-hidden="true"
+      className="h-full w-full min-w-0 max-w-full opacity-90 transition group-hover:opacity-100"
+      style={{
+        backgroundImage: `url(${image.image_url})`,
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundSize: "contain",
+      }}
     />
   );
 }
@@ -85,11 +89,20 @@ export function ProjectCard({ project, isOpen, onToggleOpen }: ProjectCardProps)
   }
 
   return (
-    <article className="group grid overflow-hidden rounded-lg border border-[#B4A5A5]/15 bg-[#151515] shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-[#B4A5A5]/35 md:grid-cols-[0.95fr_1.05fr]">
-      <div className={`relative overflow-hidden ${isOpen ? "h-full min-h-64 self-stretch" : "h-40 min-h-40 self-start"} bg-[#201926]`}>
+    <article
+      className={[
+        "group grid w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-[#B4A5A5]/15 bg-[#151515] shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-[#B4A5A5]/35",
+        isOpen ? "md:grid-cols-[0.95fr_1.05fr]" : "md:grid-cols-[14rem_1fr]",
+      ].join(" ")}
+    >
+      <div
+        className={`relative flex w-full min-w-0 max-w-full items-center justify-center overflow-hidden ${
+          isOpen ? "h-full min-h-64 self-stretch" : "h-40 min-h-40 self-start md:h-auto md:self-stretch"
+        } bg-[#201926]`}
+      >
         {activeImage ? <ProjectImage image={activeImage} /> : <ProjectPlaceholder title={project.title} isOpen={isOpen} />}
       </div>
-      <div className="flex flex-col p-6 md:p-8">
+      <div className="flex min-w-0 max-w-full flex-col p-6 md:p-8">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
           <CategoryRail categories={project.categories} expanded={isOpen} className="min-w-0 flex-1" />
           {project.featured ? (
@@ -98,8 +111,8 @@ export function ProjectCard({ project, isOpen, onToggleOpen }: ProjectCardProps)
             </span>
           ) : null}
         </div>
-        <h3 className="mt-5 text-2xl font-semibold text-white md:text-3xl">{project.title}</h3>
-        <p className={`mt-4 text-base leading-7 ${isOpen ? "grow text-[#d8d0d0]" : "text-[#f4eeee]"}`}>
+        <h3 className="mt-5 break-words text-2xl font-semibold text-white md:text-3xl">{project.title}</h3>
+        <p className={`mt-4 break-words text-base leading-7 ${isOpen ? "grow text-[#d8d0d0]" : "text-[#f4eeee]"}`}>
           {isOpen ? projectFullDescription : projectSummary}
         </p>
         {!isOpen ? <div className="grow" /> : null}
