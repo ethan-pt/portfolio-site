@@ -10,7 +10,7 @@ export function ContactSection({ contact }: ContactSectionProps) {
       id="contact"
       className="relative isolate min-h-[140svh] scroll-mt-24 overflow-visible px-5 py-20 md:px-8 md:py-28"
     >
-      <div className="mx-auto flex min-h-[calc(100svh-10rem)] max-w-6xl items-center md:sticky md:top-[calc(50svh-13rem)] md:min-h-0 md:pb-32">
+      <div className="sticky top-[calc(50svh-12rem)] mx-auto flex max-w-6xl items-start pb-24 md:top-[calc(50svh-13rem)] md:pb-32">
         <div className="grid w-full gap-8 rounded-lg border border-[#B4A5A5]/15 bg-[#3C415C]/30 p-8 shadow-2xl shadow-black/20 md:grid-cols-[1fr_auto] md:items-center md:p-10">
           <div>
             <p className="text-sm font-semibold tracking-[0.22em] text-[#B4A5A5] uppercase">Contact</p>
